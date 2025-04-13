@@ -14,7 +14,7 @@ VizGenie is a tool that simplifies the process of visualizing metrics from your 
 
 Before you can use VizGenie, ensure you have the following:
 
-* **Groq API Key:** VizGenie utilizes models from Groq. Create an API key on the [Groq platform]([Groq Platform Link - Replace with actual link]).
+* **Groq API Key:** VizGenie utilizes models from Groq. Create an API key on the [Console.groq]([https://console.groq.com/]).
 * **Grafana API Key:** You need a Grafana API key with permissions to create and manage dashboards. To create one:
     1.  Go to **Service Accounts** in your Grafana instance.
     2.  Create a new API key.
