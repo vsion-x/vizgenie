@@ -1,0 +1,30 @@
+apiVersion: 1
+
+# Add this block to delete old datasources
+deleteDatasources:
+  - name: "Loki"
+  - name: "Tempo"
+  - name: "prometheus"
+  - name: "prometheus-main"
+  - name: "prometheus-node"
+  - name: "prometheus-redis"
+
+datasources:
+  - name: "Prometheus (Self & cAdvisor)"
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+
+  - name: "Node Exporter Prometheus"
+    type: prometheus
+    access: proxy
+    url: http://prometheus-node:9090
+    isDefault: false
+
+  - name: "Redis Exporter Prometheus"
+    type: prometheus
+    access: proxy
+    url: http://prometheus-redis:9090
+    isDefault: false

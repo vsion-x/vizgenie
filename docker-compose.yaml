@@ -1,0 +1,154 @@
+version: '3.8'
+
+services:
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    networks:
+      - monitoring
+
+  prometheus-node:
+    image: prom/prometheus:latest
+    container_name: prometheus-node
+    restart: unless-stopped
+    volumes:
+      - ./config/prometheus-node.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - "9091:9090"
+    networks:
+      - monitoring
+
+  prometheus-redis:
+    image: prom/prometheus:latest
+    container_name: prometheus-redis
+    restart: unless-stopped
+    volumes:
+      - ./config/prometheus-redis.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - "9092:9090"
+    networks:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    networks:
+      - monitoring
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.1
+    container_name: cadvisor
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    command:
+      - '--storage_duration=15s'
+    networks:
+      - monitoring
+    labels:
+      org.label-schema.group: "monitoring"
+      name: "cadvisor"
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    networks:
+      - monitoring
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: redis-exporter
+    restart: unless-stopped
+    ports:
+      - "9121:9121"
+    environment:
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      - redis
+    networks:
+      - monitoring
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - monitoring
+
+  redis-traffic:
+    image: redis:latest
+    container_name: redis-traffic
+    command: 
+      - sh
+      - -c
+      - "while true; do redis-cli -h redis SET foo $$(date +%s) && sleep 0.1; done"
+    networks:
+      - monitoring
+    depends_on:
+      - redis
+
+  nginx-1:
+    image: nginx:latest
+    container_name: nginx-1
+    ports:
+      - "80:80"
+    volumes:
+      - nginx-data-1:/usr/share/nginx/html
+    networks:
+      - monitoring
+
+  nginx-2:
+    image: nginx:latest
+    container_name: nginx-2
+    ports:
+      - "81:80"
+    volumes:
+      - nginx-data-2:/usr/share/nginx/html
+    networks:
+      - monitoring
+
+networks:
+  monitoring:
+    driver: bridge
+
+volumes:
+  prometheus_data: {}
+  grafana-data: {}
+  nginx-data-1: {}
+  nginx-data-2: {}
