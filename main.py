@@ -2,11 +2,11 @@ import streamlit as st
 import requests
 import os
 from dotenv import load_dotenv
-from svc import grafana, prometheus, vectordbs
 from llm import prompt
 
-
 load_dotenv()
+
+from svc import grafana, prometheus, vectordbs
 
 # Get API keys and Grafana key from environment variables
 apikeys = os.getenv("GROQ_API_KEY", "").split(",")
