@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/vsion-x/vizgenie/main/assets/logo.png" alt="VizGenie Logo" width="300"/>
+  <img src="https://raw.githubusercontent.com/vsion-x/vizgenie/main/assets/vizgenielogo.svg" alt="VizGenie Logo" width="300"/>
   
   [![Demo Video](https://img.shields.io/badge/Watch-Demo_Video-blue)](https://www.loom.com/share/d4ebd415de14413faf23a928a728ccf9?sid=da9cec9a-849e-4954-89b0-3a77f2b7e6d2)
 </div>
