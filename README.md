@@ -1,41 +1,46 @@
+<div align="center">
+  <img src="https://raw.githubusercontent.com/vsion-x/vizgenie/main/assets/logo.png" alt="VizGenie Logo" width="300"/>
+  
+  [![Demo Video](https://img.shields.io/badge/Watch-Demo_Video-blue)](https://www.loom.com/share/d4ebd415de14413faf23a928a728ccf9?sid=da9cec9a-849e-4954-89b0-3a77f2b7e6d2)
+</div>
+
 # VizGenie: Visualize Your Data Your Way
 
-VizGenie is a tool that simplifies the process of visualizing metrics from your data sources within Grafana. By understanding your natural language queries, VizGenie leverages the power of language models to fetch relevant metrics, construct PromQL queries (currently supporting Prometheus, with more data sources planned), generate Grafana dashboard JSON, and automatically apply it to your Grafana instance.
+VizGenie is an intelligent tool that transforms natural language queries into Grafana visualizations. It leverages language models to generate PromQL queries, build dashboards, and deploy them automatically to your Grafana instance.
 
-## Key Features
+## ✨ Key Features
 
-* **Natural Language to Visualization:** Enter your desired visualization in plain English, and VizGenie will attempt to create it.
-* **Grafana Integration:** Seamlessly creates and applies dashboards directly to your Grafana instance.
-* **Prometheus Support (Current):** Fully supports Prometheus as a data source for metric retrieval.
-* **Extensible Architecture (Future):** Designed to support more data sources beyond Prometheus in future updates.
-* **Intelligent Query Generation:** Uses language models to understand your intent and generate appropriate PromQL queries.
+* **Natural Language to Visualization** - Describe metrics in plain English
+* **Grafana Integration** - Auto-create and deploy dashboards
+* **Prometheus Support** - Native PromQL query generation
+* **Extensible Architecture** - Future support for multiple data sources
+* **AI-Powered Insights** - Context-aware metric recommendations
 
-## Prerequisites
+## 🎬 Demo
 
-Before you can use VizGenie, ensure you have the following:
+[Watch a short demo](https://www.loom.com/share/d4ebd415de14413faf23a928a728ccf9?sid=da9cec9a-849e-4954-89b0-3a77f2b7e6d2) showing VizGenie in action.
 
-* **Groq API Key:** VizGenie utilizes models from Groq. Create an API key on the [Console.groq]([https://console.groq.com/]).
-* **Grafana API Key:** You need a Grafana API key with permissions to create and manage dashboards. To create one:
-    1.  Go to **Service Accounts** in your Grafana instance.
-    2.  Create a new API key.
-    3.  Ensure the key has the necessary permissions (e.g., `dashboards:write`).
-* **Docker (Optional but Recommended for Development):** If you intend to use the provided development environment.
+## 🚀 Getting Started
 
-## Configuration
+### 📋 Prerequisites
 
-Create a `.env` file in the root directory of the project and populate it with your credentials and Grafana/Prometheus URLs:
+- **Groq API Key**: Get from [Groq Console](https://console.groq.com/)
+- **Grafana API Key**: Create with `dashboards:write` permissions
+- **Docker** (Optional): Recommended for containerized deployment
 
-```GROQ_API_KEY=<YOUR_GROQ_API_KEY> GRAFANA_KEY=<YOUR_GRAFANA_API_KEY> ```
-```PROMETHEUS_HOST=http://localhost # Or your Prometheus instance URL ```
-```GRAFANA_HOST=http://localhost:3000 # Or your Grafana instance URL```
+### ⚙️ Configuration
+
+1. Create `.env` file with:
+```env
+GROQ_API_KEY=<YOUR_GROQ_API_KEY>
+GRAFANA_KEY=<YOUR_GRAFANA_API_KEY>
+PROMETHEUS_HOST=http://localhost  # Your Prometheus URL
+GRAFANA_HOST=http://localhost:3000  # Your Grafana URL
+```
 
 **Important:** Replace the placeholder values with your actual API keys and host addresses.
 
-## Running VizGenie
-
-You have two primary ways to run VizGenie: using Docker Compose for the development environment or directly using Streamlit.
-
-### Using Docker Compose (Recommended for Development)
+### 🐳 Docker Deployment (Recommended)
 
 1. Ensure you have Docker and Docker Compose installed on your system. 
 2. Navigate to the root directory of the VizGenie project in your terminal. 
@@ -45,7 +50,7 @@ docker-compose up
 ```
 5. Once the containers are running, you should be able to access the VizGenie UI in your web browser, typically at `http://localhost:8501`.
 
-### Running Directly with Streamlit 
+### 🐍 Local Python Setup
 1. Ensure you have Python 3 and Streamlit installed. If not, you can install them using pip: 
 ```bash 
 pip install -r requirements.txt 
