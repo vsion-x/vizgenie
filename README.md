@@ -18,7 +18,14 @@ VizGenie is an intelligent tool that transforms natural language queries into Gr
 
 ## 🎬 Demo
 
-[Watch a short demo](https://www.loom.com/share/d4ebd415de14413faf23a928a728ccf9?sid=da9cec9a-849e-4954-89b0-3a77f2b7e6d2) showing VizGenie in action.
+<div>
+    <a href="https://www.loom.com/share/d4ebd415de14413faf23a928a728ccf9">
+      <p>Automated-Grafana-Dashboard-llm - Watch Video</p>
+    </a>
+    <a href="https://www.loom.com/share/d4ebd415de14413faf23a928a728ccf9">
+      <img style="max-width:300px;" src="https://cdn.loom.com/sessions/thumbnails/d4ebd415de14413faf23a928a728ccf9-101b13f5c63868b2-full-play.gif">
+    </a>
+</div>
 
 ## 🚀 Getting Started
 
