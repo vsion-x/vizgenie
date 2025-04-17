@@ -5,7 +5,7 @@ import streamlit as st
 
 
 grafana_key = os.getenv("GRAFANA_KEY")
-grafana_host = os.getenv("GRAFANA_HOST", "http://localhost:3000")
+grafana_host = os.getenv("GRAFANA_HOST")
 
 
 def apply_grafana_dashboard(dashboard_json):
@@ -37,20 +37,16 @@ def fetch_datasources():
     url = f"{grafana_host}/api/datasources"
     headers = {"Authorization": f"Bearer {grafana_key}"}
     
-    try:
-        response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            processed_ds = []
-            for ds in response.json():
-                # Only process Prometheus datasources
-                if ds.get('type') == 'prometheus':
-                    # Create a copy to avoid modifying original data
-                    modified_ds = ds.copy()
-                    modified_ds['adjusted_url'] = prometheus.adjust_prometheus_url(ds.get('url', ''))
-                    processed_ds.append(modified_ds)
-            return processed_ds
-        st.error("Failed to fetch datasources")
-        return []
-    except Exception as e:
-        st.error(f"Datasource error: {str(e)}")
-        return []
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        processed_ds = []
+        for ds in response.json():
+            # Only process Prometheus datasources
+            if ds.get('type') == 'prometheus':
+                # Create a copy to avoid modifying original data
+                modified_ds = ds.copy()
+                modified_ds['adjusted_url'] = prometheus.adjust_prometheus_url(ds.get('url', ''))
+                processed_ds.append(modified_ds)
+        return processed_ds
+    st.error("Failed to fetch datasources")
+    return []
