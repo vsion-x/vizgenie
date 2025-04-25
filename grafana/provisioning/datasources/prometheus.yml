@@ -8,6 +8,9 @@ deleteDatasources:
   - name: "prometheus-main"
   - name: "prometheus-node"
   - name: "prometheus-redis"
+  - name: "Postgres"
+  - name: "grafana-postgresql-datasource"
+  - name: "postgres"
 
 datasources:
   - name: "Prometheus (Self & cAdvisor)"

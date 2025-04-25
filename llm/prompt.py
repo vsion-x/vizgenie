@@ -224,3 +224,68 @@ def generate_grafana_dashboard(promql_response):
 
     except Exception as e:
         return {"error": f"Dashboard post-processing failed: {str(e)}"}
+
+
+def get_query_metrics_labels(queries):
+    prompt = f"""
+    You are an expert in Prometheus metrics and observability queries.
+    Your task is to analyze user queries and suggest relevant Prometheus metrics and labels.
+        
+    **Context:** You're analyzing observability queries to identify relevant Prometheus metrics and their labels. 
+    The user wants to create Grafana dashboards from natural language questions.
+    
+    **Objective:** For each query, return:
+    - Up to 5 potential metrics names
+    - Up to 3 relevant labels for filtering/grouping
+    - Never invent metrics - only suggest real Prometheus metrics
+    
+    **Style:** 
+    - Structured and technical
+    - Prometheus-centric terminology
+    - Clear metric-label relationships
+    
+    **Tone:** 
+    - Precise and analytical
+    - Avoid assumptions or explanations
+    
+    **Audience:** 
+    - DevOps engineers
+    - SREs with Prometheus experience
+    
+    **Response Format:** Strict JSON
+    {{
+        "data": [
+            {{
+                "query": "original_user_query",
+                "datasource": "selected_datasource_name",
+                "metrics": ["metric1", "metric2", ...],  // max 5
+                "related_metrics_labels": ["label1", "label2", "label3"]  // max 3
+            }}
+        ]
+    }}
+
+    **Input Queries:**
+    {json.dumps([
+        {"query": q[0], "datasource": q[1]} 
+        for q in queries if q[0] and q[1]
+    ], indent=2)}
+
+    **Rules:**
+    1. Metrics must exist in standard Prometheus ecosystem
+    2. Labels should be actually present on the suggested metrics
+    3. Prioritize metrics matching query intent over quantity
+    4. Handle abbreviated/spoken-language queries professionally
+    5. Never include example metrics - only real suggestions
+    """
+
+    result = groq.groqrequest(prompt)
+    
+    # Validation
+    if not result.get('data'):
+        return {"error": "Invalid response format"}
+        
+    for entry in result['data']:
+        if not all(key in entry for key in ['query','datasource','metrics','related_metrics_labels']):
+            return {"error": "Missing required fields in LLM response"}
+    
+    return result

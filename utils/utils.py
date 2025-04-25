@@ -1,22 +1,15 @@
 import docker
 
-
-
 def get_exposed_port(container_name):
-    client = docker.from_env()
     try:
-        # Get the container by its name
+        client = docker.DockerClient(base_url='unix://var/run/docker.sock')
         container = client.containers.get(container_name)
+        ports = container.attrs['NetworkSettings']['Ports']
+        for container_port, host_bindings in ports.items():
+            if host_bindings:
+                return host_bindings[0]['HostPort']
     except docker.errors.NotFound:
         print(f"Container '{container_name}' not found.")
-        return None
-
-    # Retrieve port mapping details from the container's attributes
-    ports = container.attrs['NetworkSettings']['Ports']
-    for container_port, host_bindings in ports.items():
-        if host_bindings:  # Check if port is exposed
-            # Return the first host port found in the bindings
-            return host_bindings[0]['HostPort']
-
-    # If no exposed ports found, return None
+    except docker.errors.DockerException as e:
+        print(f"Docker error: {e}")
     return None
