@@ -31,3 +31,17 @@ datasources:
     access: proxy
     url: http://prometheus-redis:9090
     isDefault: false
+
+  - name: PostgreSQL
+    type: postgres
+    url: postgres:5432
+    database: sales_db
+    user: postgres
+    secureJsonData:
+      password: admin
+    editable: false
+    jsonData:
+      sslmode: disable
+      maxOpenConns: 10
+      maxIdleConns: 5
+      connMaxLifetime: 14400

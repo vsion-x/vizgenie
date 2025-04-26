@@ -143,6 +143,34 @@ services:
     networks:
       - monitoring
 
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sales_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+    volumes:
+      - postgres-datasource:/var/lib/postgresql/data
+    networks:
+      - monitoring
+    ports:
+      - "5433:5432"
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: postgres-exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://postgres:admin@postgres:5432/sales_db?sslmode=disable"
+    ports:
+      - "9187:9187"
+    depends_on:
+      - postgres
+    networks:
+      - monitoring
+
 networks:
   monitoring:
     driver: bridge
@@ -152,3 +180,4 @@ volumes:
   grafana-data: {}
   nginx-data-1: {}
   nginx-data-2: {}
+  postgres-datasource: {}
