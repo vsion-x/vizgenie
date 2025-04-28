@@ -1,184 +1,198 @@
 import streamlit as st
-import requests
 import os
+import json
+from datetime import datetime
 from dotenv import load_dotenv
-import re
-from loguru import logger
+from handlers.prometheus_handler import PrometheusHandler
+from handlers.postgres_handler import PostgresHandler
+from svc import grafana, vectordbs, prometheus
+from llm import prompt
+
+# Load environment variables
 load_dotenv()
 
-from llm import prompt
-from svc import grafana, prometheus, vectordbs
+# Initialize handlers
+prometheus_handler = PrometheusHandler()
+postgres_handler = PostgresHandler()
 
-# Get API keys and Grafana key from environment variables
-apikeys = os.getenv("GROQ_API_KEY", "").split(",")
+def initialize_session_state():
+    """Initialize Streamlit session state variables"""
+    if 'metrics_labels' not in st.session_state:
+        st.session_state.metrics_labels = {}
+    if 'dummy_loaded' not in st.session_state:
+        vectordbs.store_metrics([f"dummy_metric_{i}" for i in range(1, 11)], "sample-datasource-uid")
+        st.session_state.dummy_loaded = True
 
-ALLOWED_METRIC_LABELS = [
-    "instance", "job", "name", "fstype", "persistentvolumeclaim", "service", 
-    "mountpoint", "mode", "cpu", "device", "namespace", "pod", "container", 
-    "deployment", "method", "status_code", "phase", "endpoint", "status", 
-    "env", "region", "zone", "version", "code", "protocol", "database",
-    "table", "user", "command", "queue", "host", "availability_zone", 
-    "instance_type", "cluster", "role"
-]
+def display_datasources(datasources):
+    """Display available datasources in formatted way"""
+    st.subheader("🔌 Connected Datasources")
+    for ds in datasources:
+        with st.expander(f"{ds['type'].upper()}: {ds['name']}", expanded=False):
+            st.markdown(f"""
+            **UID:** `{ds['uid']}`  
+            **URL:** {ds.get('url', ds.get('adjusted_url', 'N/A'))}  
+            **Database:** {ds.get('database', 'N/A')}
+            """)
 
-dummy_metrics = [f"dummy_metric_{i}" for i in range(1, 11)]  # 10 dummy metric names
-dummy_ds_uid = "sample-datasource-uid"
-
-# Initialize session state for metrics labels
-if 'metrics_labels' not in st.session_state:
-    st.session_state.metrics_labels = {}
-
-if 'dummy_loaded' not in st.session_state:
-    count = vectordbs.store_metrics(dummy_metrics, dummy_ds_uid)
-    st.info(f"Initialized vector DB with {count} dummy metrics for testing.")
-    st.session_state['dummy_loaded'] = True
-
-# Streamlit UI
-st.title("Prometheus Metrics Dashboard Builder")
-
-# Datasource initialization
-datasources = grafana.fetch_datasources()
-if not datasources:
-    st.warning("No Prometheus datasources found in Grafana")
-    st.stop()
-
-ds_options = {ds['name']: (ds['uid'], ds['adjusted_url']) for ds in datasources}
-
-# Metric management section
-with st.expander("Metric Management", expanded=False):
-    if st.button("Refresh All Metrics"):
-        with st.spinner("Updating metrics..."):
-            for ds in datasources:
-                metrics = prometheus.fetch_metrics(ds['adjusted_url'])
-                logger.info(f"Fetched {len(metrics)} metrics from {ds['name']}")
-                if metrics:
-                    count = vectordbs.store_metrics(metrics, ds['uid'])
-                    st.success(f"Updated {ds['name']} with {count} new metrics")
-
-# Dashboard creation form
-st.header("Create New Dashboard")
-with st.form("dashboard_form"):
-    queries = []
-    for i in range(3):
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            query = st.text_input(f"Query {i+1}", key=f"q{i}")
-        with col2:
-            ds_name = st.selectbox(f"Datasource {i+1}", options=ds_options.keys(), key=f"ds{i}")
-        queries.append((query, ds_name))
-    
-    if st.form_submit_button("Analyze Queries"):
-        with st.spinner("Analyzing queries..."):
-            st.session_state.llm_response = prompt.get_query_metrics_labels(queries)
-            st.session_state.processed_queries = []
-            st.session_state.promql_response = None
-            st.session_state.dashboard_json = None
-            logger.info("LLM response received")
-    
-# Show analysis results
-if 'llm_response' in st.session_state and st.session_state.llm_response.get('data'):
-    st.success("Query analysis completed! Ready to generate dashboard")
-    
-    # Store processed queries in session state
-    if not st.session_state.processed_queries:
-        for entry in st.session_state.llm_response['data']:
-            query = entry['query']
-            ds_name = entry['datasource']
-            metrics = entry['metrics']
-            labels = entry['related_metrics_labels']
-
-            logger.info(f"Processing query: {query} from {ds_name}")
-            
-            if query and ds_name:
-                ds_uid, ds_url = ds_options[ds_name]
-                
-                # VectorDB similarity search
-                similar_metrics = vectordbs.query_metrics_batch(
-                    metric_names=metrics,
-                    ds_uid=ds_uid,
-                    n_results=5
-                )
-                logger.info(f"Found {len(similar_metrics)} similar metrics for {query}")
-                
-                # Label fetching
-                metric_labels = []
-                for metric in similar_metrics:
+def handle_metric_management(datasources):
+    """Metric management section for Prometheus"""
+    with st.expander("🔄 Metric Management", expanded=False):
+        if st.button("Refresh All Prometheus Metrics"):
+            with st.spinner("Updating metrics across all Prometheus datasources..."):
+                for ds in [d for d in datasources if d['type'] == 'prometheus']:
                     try:
-                        label_res = requests.get(f"{ds_url}/api/v1/query?query={metric}")
-                        logger.info(f"Label fetch response: {label_res.status_code}")
-                        if label_res.ok:
-                            results = label_res.json().get('data', {}).get('result', [])
-                            if results:
-                                keys = set(results[0].get('metric', {}).keys())
-                                filtered = [
-                                    k for k in keys 
-                                    if (
-                                        k in ALLOWED_METRIC_LABELS and
-                                        not re.match(r'^[a-fA-F0-9]{32,64}$', k) and
-                                        not re.match(r'.*\{\{.*\}\}.*', k) and
-                                        k not in ['__name__', 'id']
-                                    )
-                                ]
-                                metric_labels.extend(filtered)
-                                logger.info(f"Fetched labels for {metric}: {filtered}")
+                        count = prometheus_handler.fetch_metrics_data(ds)
+                        st.success(f"Updated {ds['name']} with {count} new metrics")
                     except Exception as e:
-                        st.error(f"Label fetch failed for {metric}: {str(e)}")
-                
-                st.session_state.processed_queries.append({
-                    "mandatory_datasource_uuid": ds_uid,
-                    "userquery": query,
-                    "mandatory_similar_metrics": similar_metrics,
-                    "mandatry_corresponding_metrics_labels": list(set(metric_labels))
-                })
+                        st.error(f"Failed to update {ds['name']}: {str(e)}")
 
-# Dashboard generation section
-if st.session_state.get('processed_queries'):
-    if st.button("✨ Generate Dashboard"):
-        with st.spinner("Generating PromQL queries..."):
-            try:
-                st.session_state.promql_response = prompt.generate_promql_query(
-                    st.session_state.processed_queries
+def main():
+    """Main application flow"""
+    st.set_page_config(page_title="VizGenie", layout="wide")
+    initialize_session_state()
+    
+    st.title("🎩 VizGenie - Natural Language to Dashboard")
+    st.markdown("Transform natural language queries into Grafana dashboards with AI magic!")
+    
+    # Fetch and display datasources
+    datasources = grafana.fetch_datasources()
+    if not datasources:
+        st.warning("⚠️ No datasources found in Grafana!")
+        st.stop()
+    
+    display_datasources(datasources)
+    handle_metric_management(datasources)
+
+    # Dashboard creation form
+    st.header("🚀 Create New Dashboard")
+    with st.form("main_form"):
+        # Query input section
+        queries = []
+        for i in range(2):
+            cols = st.columns([4, 1])
+            with cols[0]:
+                query = st.text_input(
+                    f"Query {i+1}", 
+                    placeholder="Describe your visualization in plain English...",
+                    key=f"query_{i}"
                 )
+            with cols[1]:
+                ds_name = st.selectbox(
+                    f"Datasource {i+1}",
+                    options=[ds['name'] for ds in datasources],
+                    key=f"ds_{i}"
+                )
+            queries.append((query, ds_name))
 
-                logger.info("PromQL response received")
+        if st.form_submit_button("✨ Generate Dashboard", use_container_width=True):
+            process_queries(queries, datasources)
+
+def process_queries(queries, datasources):
+    """Process queries through appropriate handlers"""
+    processed_responses = []
+    
+    for query_text, ds_name in queries:
+        if not query_text:
+            continue
+            
+        # Find matching datasource
+        datasource = next((ds for ds in datasources if ds['name'] == ds_name), None)
+        if not datasource:
+            st.error(f"🔴 Datasource '{ds_name}' not found!")
+            continue
+
+        try:
+            if datasource['type'] == 'prometheus':
+                response = handle_prometheus_query(query_text, datasource)
+            elif datasource['type'] == 'postgres':
+                response = handle_postgres_query(query_text, datasource)
+            else:
+                st.warning(f"Unsupported datasource type: {datasource['type']}")
+                continue
+
+            if response and not response.get('error'):
+                processed_responses.append(response)
                 
-                if st.session_state.promql_response.get('error'):
-                    st.error("PromQL generation failed")
-                    st.stop()
-                
-                st.success("PromQL queries generated successfully")
-                
-                # Dashboard generation
-                with st.spinner("Building Grafana dashboard..."):
-                    st.session_state.dashboard_json = prompt.generate_grafana_dashboard(
-                        st.session_state.promql_response
-                    )
+        except Exception as e:
+            st.error(f"🔴 Error processing query: {str(e)}")
+            st.exception(e)
 
-                    logger.info("Dashboard JSON response received")
-                    
-                    if st.session_state.dashboard_json.get('error'):
-                        st.error("Dashboard creation failed")
-                        st.stop()
-                    
-                    # Deploy to Grafana
-                    apply_response = grafana.apply_grafana_dashboard(
-                        st.session_state.dashboard_json
-                    )
+    if processed_responses:
+        deploy_dashboard(processed_responses)
 
-                    logger.info("Dashboard deployment response received")
-                    
-                    if 'url' in apply_response:
-                        st.success(f"Dashboard deployed: [View in Grafana]({apply_response['url']})")
-                    else:
-                        st.error("Dashboard deployment failed")
-            except Exception as e:
-                st.error(f"Generation failed: {str(e)}")
+def handle_prometheus_query(query_text, datasource):
+    """Process Prometheus query through full pipeline"""
+    with st.spinner(f"🔍 Analyzing Prometheus query: '{query_text}'..."):
+        # Step 1: Get metrics from LLM
+        llm_response = prompt.get_query_metrics_labels([(query_text, datasource['name'])])
+        if llm_response.get('error'):
+            raise Exception("LLM analysis failed")
+        
+        # Step 2: VectorDB similarity search
+        similar_metrics = vectordbs.query_metrics_batch(
+            llm_response['data'][0]['metrics'],
+            datasource['uid'],
+            n_results=5
+        )
+        
+        # Step 3: Discover labels
+        metric_labels = prometheus_handler.get_metrics_labels(
+            datasource['adjusted_url'],
+            similar_metrics
+        )
+        # Step 4: Generate PromQL
+        query_context = {
+            "datasource": datasource['uid'],
+            "original_query": query_text,
+            "similar_metrics": similar_metrics,
+            "labels": metric_labels
+        }
+        promql_response = prompt.generate_promql_query([query_context])
+        
+        return {
+            'type': 'prometheus',
+            'data': promql_response,
+            'context': query_context
+        }
 
-# Show intermediate results
-if st.session_state.get('promql_response'):
-    with st.expander("Generated PromQL Queries"):
-        st.json(st.session_state.promql_response)
+def handle_postgres_query(query_text, datasource):
+    """Process PostgreSQL query through full pipeline"""
+    with st.spinner(f"🔍 Analyzing PostgreSQL query: '{query_text}'..."):
+        # Get schema context from metadata
+        metadata_context = postgres_handler.load_metadata()
+        
+        # Generate SQL with metadata
+        sql_response = prompt.generate_sql_query(
+            query=query_text,
+            datasource=datasource['uid'],
+            metadata_context = metadata_context
+        )
 
-if st.session_state.get('dashboard_json'):
-    with st.expander("Grafana Dashboard JSON"):
-        st.json(st.session_state.dashboard_json)
+        
+        return {
+            'type': 'postgres',
+            'data': sql_response
+        }
+
+def deploy_dashboard(responses):
+    """Deploy final dashboard to Grafana"""
+    with st.spinner("🎨 Creating beautiful dashboard..."):
+        # Generate Grafana JSON
+        dashboard_json = prompt.generate_grafana_dashboard({
+            "result": [resp['data'] for resp in responses if not resp.get('error')]
+        })
+
+        
+        if dashboard_json.get('error'):
+            st.error("😢 Failed to generate dashboard JSON")
+            return
+
+        # Deploy to Grafana
+        deploy_result = grafana.apply_grafana_dashboard(dashboard_json)
+        if deploy_result.get('url'):
+            st.success(f"✅ Dashboard created! [View in Grafana]({deploy_result['url']})")
+        else:
+            st.error("😢 Failed to deploy dashboard")
+
+if __name__ == "__main__":
+    main()

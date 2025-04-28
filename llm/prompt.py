@@ -62,166 +62,159 @@ def generate_promql_query(user_query_map):
 
     result = groq.groqrequest(prompt)
 
+    if result.startswith("```"):
+        result = result.strip("`").strip()
+    if result.lower().startswith("json"):
+        result = result[4:].strip()
+    # Attempt to parse the JSON response
+    try:
+        result = json.loads(result)
+    except json.JSONDecodeError:
+        return {"error": "Failed to parse JSON response from LLM"}
+
     if result.get("error"):
         return {"error": "Failed to generate PromQL query from Groq API"}
 
     return result
 
 
-def generate_grafana_dashboard(promql_response):
+def generate_grafana_dashboard(query_responses):
     """
-    Generate a Grafana dashboard JSON from the PromQL responses with proper visualization types.
+    Generate a Grafana 9.x dashboard JSON supporting both Prometheus and PostgreSQL datasources
     """
     prompt = f"""
-    Create Grafana 9.x dashboard JSON for the following PromQL query configuration:
-    {json.dumps(promql_response, indent=2)}
+    Create Grafana 9.x dashboard JSON that supports both Prometheus and PostgreSQL datasources.
+    Use this structure for mixed datasource dashboards:
 
-    Requirements:
-    1. Use this base structure:
+    Input configuration:
+    {json.dumps(query_responses, indent=2)}
+
+    Base template:
     {{
         "title": "Generated Dashboard",
-        "uid": "auto-dash-{hash(json.dumps(promql_response))}",
+        "uid": "auto-dash-{hash(json.dumps(query_responses))}",
         "panels": [
             {{
-                "type": "timeseries|piechart|table|gauge|bargauge|stat",
+                "type": "$VIS_TYPE",
                 "title": "Panel Title",
-                "datasource": {{ 
-                    "type": "prometheus",
-                    "uid": "$datasource_uuid" 
+                "datasource": {{
+                    "type": "$DATASOURCE_TYPE",
+                    "uid": "$DATASOURCE_UID"
                 }},
                 "targets": [
                     {{
-                        "expr": "$query",
+                        "expr": "$QUERY",          // PromQL
+                        "rawSql": "$QUERY",        // PostgreSQL
                         "refId": "A",
-                        "format": "time_series|table",
-                        "legendFormat": "{{{{label}}}}"
+                        "format": "$RESULT_FORMAT",
+                        "legendFormat": "{{{{label}}}}"  // For time series
                     }}
                 ],
-                "options": {{
-                    "mode": "lines|bars|points",
-                    "pieType": "pie|donut",
-                    "orientation": "auto|horizontal|vertical",
-                    "reduceOptions": {{
-                        "calcs": ["lastNotNull"],
-                        "fields": "",
-                        "values": false
-                    }}
-                }},
-                "fieldConfig": {{
-                    "defaults": {{
-                        "unit": "short",
-                        "thresholds": {{
-                            "mode": "absolute",
-                            "steps": [
-                                {{ "color": "green", "value": null }},
-                                {{ "color": "red", "value": 80 }}
-                            ]
-                        }}
-                    }},
-                    "overrides": []
-                }},
+                "options": {{/* Visualization-specific options */}},
                 "gridPos": {{ "x": 0, "y": 0, "w": 12, "h": 8 }}
             }}
         ],
-        "time": {{ "from": "now-1h", "to": "now" }},
-        "schemaVersion": 36,
-        "version": 1
+        "schemaVersion": 36
     }}
 
-    2. Visualization Selection Rules:
-    - Timeseries (line/bars): For metrics with timestamped values
-      (e.g., rate(node_cpu_seconds_total[5m]))
-      Options: Set "mode" to "bars" for bar charts
-      
-    - Piechart: For aggregated categorical distributions
-      (e.g., sum by (job)(rate(http_requests_total[5m])))
-      Format: MUST use "table"
-      
-    - Gauge: For single numeric values with thresholds
-      (e.g., avg(system_memory_used_percent))
-      Format: "time_series" with last value
-      
-    - Bargauge: For comparative horizontal/vertical bars
-      (e.g., topk(5, container_memory_usage_bytes))
-      
-    - Stat: Simple big number display
-      (e.g., count(http_requests_total))
+    Visualization Rules:
 
-    3. Strict Rules:
-    - Use EXACT panel types: "timeseries", "piechart", "table", "gauge", "bargauge", "stat"
-    - Match formats: "time_series" for metrics, "table" for aggregations
-    - Set "legendFormat" using labels from the PromQL result
-    - Include gridPos with sequential positioning (x: 0->24, y: increments of 8)
-    - For gauges: Include threshold configuration in fieldConfig
-    - For piecharts: Set "pieType" to "donut" and format to "table"
+    1. Prometheus Panels:
+    - Timeseries: Metrics with timestamped values
+    - Piechart: Aggregated categorical distributions
+    - Gauge/Bargauge: Single values/comparisons
+    - Stat: Simple numeric displays
+    - Format: "time_series" for metrics, "table" for aggregations
 
-    4. Example Configurations:
-    - Pie Chart Example:
-      {{
-        "type": "piechart",
-        "options": {{ "pieType": "donut" }},
-        "targets": [{{
-            "expr": "sum by (env)(rate(http_requests_total[5m]))",
-            "format": "table",
-            "refId": "A"
-        }}]
-      }}
+    2. PostgreSQL Panels:
+    - Table: Raw SQL results
+    - Timeseries: Time-based queries (must have time column)
+    - Stat: Single value results
+    - Piechart: Category distributions
+    - Format: "table" for most queries, "time_series" if time column exists
 
-    - Bar Gauge Example:
-      {{
-        "type": "bargauge",
-        "options": {{ "orientation": "horizontal" }},
-        "targets": [{{
-            "expr": "topk(3, container_memory_usage_bytes)",
-            "format": "time_series",
-            "refId": "A"
-        }}]
-      }}
+    3. Panel Type Mapping:
+    | Query Type        | Suggested Panel   | Format       |
+    |-------------------|-------------------|--------------|
+    | Prometheus Range  | timeseries        | time_series  |
+    | Prometheus Aggr.  | piechart/stat     | table        |
+    | SQL SELECT        | table             | table        |
+    | SQL Aggregation   | stat/piechart     | table        |
+    | SQL Time Series   | timeseries        | time_series  |
 
-    - Time Series Bars:
+    4. Special Handling:
+    - For PostgreSQL timeseries:
+      * Query MUST return a time column named 'time'
+      * Include "convertToDateType": true in fieldConfig
+    - Mix datasources in same dashboard
+    - Maintain consistent grid layout
+
+    5. Examples:
+    - Prometheus CPU Usage:
       {{
         "type": "timeseries",
-        "options": {{ "mode": "bars" }},
+        "datasource": {{"type":"prometheus","uid":"DS_UID"}},
         "targets": [{{
-            "expr": "rate(http_requests_total[5m]",
-            "format": "time_series",
-            "refId": "A"
+            "expr": "rate(node_cpu_seconds_total[5m])",
+            "format": "time_series"
         }}]
       }}
 
-    Output ONLY valid JSON. No markdown or extra text.
+    - PostgreSQL Sales Report:
+      {{
+        "type": "table",
+        "datasource": {{"type":"postgres","uid":"DS_UID"}},
+        "targets": [{{
+            "rawSql": "SELECT product, SUM(sales) FROM orders GROUP BY product",
+            "format": "table"
+        }}]
+      }}
+
+    - Mixed Dashboard Layout:
+      "panels": [
+        {{/* Prometheus panel */ "gridPos": {{"x":0,"y":0,"w":12,"h":8}} }},
+        {{/* Postgres panel */   "gridPos": {{"x":0,"y":8,"w":12,"h":8}} }}
+      ]
+
+    Output ONLY valid JSON. No markdown or explanations.
     """
 
     result = groq.groqrequest(prompt)
 
-    if result.get("error"):
-        return {"error": "Failed to generate Grafana dashboard from Groq API"}
-    
-    # Post-process JSON to ensure Grafana compatibility
+    if result.startswith("```"):
+        result = result.strip("`").strip()
+    if result.lower().startswith("json"):
+        result = result[4:].strip()
+
+
     try:
-        # Ensure required fields exist
-        result.setdefault("tags", ["generated"])
-        result.setdefault("refresh", "30s")
-        
-        # Normalize panel positions
-        for i, panel in enumerate(result.get("panels", [])):
-            panel["gridPos"] = {
-                "x": (i % 2) * 12,
-                "y": (i // 2) * 8,
-                "w": 12,
-                "h": 8
-            }
-            
+        result = json.loads(result)
+    except json.JSONDecodeError as e:
+        return {"error": f"Failed to parse JSON: {str(e)}"}
+    
+    print("========>>> result", result)
+
+    try:
+        for panel in result.get("panels", []):
             # Ensure consistent datasource format
             if "datasource" in panel:
                 if isinstance(panel["datasource"], str):
                     panel["datasource"] = {
-                        "type": "prometheus",
+                        "type": "prometheus" if "prometheus" in panel["datasource"].lower() else "postgres",
                         "uid": panel["datasource"]
                     }
+            
+            # Add PostgreSQL time conversion
+            if panel["datasource"]["type"] == "postgres" and panel["type"] == "timeseries":
+                panel.setdefault("fieldConfig", {})
+                panel["fieldConfig"]["defaults"] = {
+                    "unit": "dateTimeAsIso",
+                    "custom": {
+                        "convertToDateType": True
+                    }
+                }
 
         return result
-
     except Exception as e:
         return {"error": f"Dashboard post-processing failed: {str(e)}"}
 
@@ -279,6 +272,16 @@ def get_query_metrics_labels(queries):
     """
 
     result = groq.groqrequest(prompt)
+
+    if result.startswith("```"):
+        result = result.strip("`").strip()
+        if result.lower().startswith("json"):
+            result = result[4:].strip()
+    # Attempt to parse the JSON response
+    try:
+        result = json.loads(result)
+    except json.JSONDecodeError:
+        return {"error": "Failed to parse JSON response from LLM"}
     
     # Validation
     if not result.get('data'):
@@ -288,4 +291,61 @@ def get_query_metrics_labels(queries):
         if not all(key in entry for key in ['query','datasource','metrics','related_metrics_labels']):
             return {"error": "Missing required fields in LLM response"}
     
+    return result
+
+    
+def generate_sql_query(query, datasource, metadata_context):
+    prompt = f"""
+        Context:
+        You are an expert SQL generator for analytical systems. Your goal is to create valid, optimized SQL queries based strictly on the provided schema and metadata.
+
+        Key Instructions:
+        - Use ONLY the columns and tables exactly as defined in the schema: {metadata_context}
+        - Column names and table names are case-sensitive. Always use double quotes (") around them.
+        - Mandatory datasource UUID: {datasource}
+
+        SQL Style:
+        - ANSI-SQL compliant
+        - Well-formatted and readable
+        - Prefer CTEs for multi-step queries
+        - Always use explicit JOINs
+        - Never use SELECT *
+        - Use database-specific functions only if mentioned
+
+        Output Format:
+        Return only valid JSON with the structure:
+        {{
+            "result": [
+                {{
+                    "mandatory_datasource_uuid": "value",
+                    "userquery": "value",
+                    "query": "Generated PromQL query"
+                }}
+            ]
+        }}
+
+        Important:
+        - Quote all identifiers ("TABLE_NAME", "COLUMN_NAME") to respect case-sensitivity.
+        - If a table or column does not exist, return:
+        {{ "error": "Invalid table or column in schema" }}
+        - If a JOIN lacks a condition, return:
+        {{ "error": "Missing join condition" }}
+
+        User Query Input:
+        {query}
+
+        Examples:
+
+        - Simple Selection:
+        [SELECT "CUSTOMERNAME", "COUNTRY", "SALES" FROM "sales_data";]
+
+        - Aggregation:
+        [SELECT "COUNTRY", SUM("SALES") AS "total_sales" FROM "sales_data" GROUP BY "COUNTRY" ORDER BY "total_sales" DESC;]
+
+        - Window Function:
+        [SELECT "YEAR_ID", "MONTH_ID", SUM("SALES") AS "monthly_sales" FROM "sales_data" GROUP BY "YEAR_ID", "MONTH_ID" ORDER BY "YEAR_ID" DESC, "MONTH_ID" ASC;]
+
+    """
+    result = groq.groqrequest(prompt)
+
     return result

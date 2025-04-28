@@ -20,32 +20,6 @@ services:
     networks:
       - monitoring
 
-  prometheus-node:
-    image: prom/prometheus:latest
-    container_name: prometheus-node
-    restart: unless-stopped
-    volumes:
-      - ./config/prometheus-node.yml:/etc/prometheus/prometheus.yml
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-    ports:
-      - "9091:9090"
-    networks:
-      - monitoring
-
-  prometheus-redis:
-    image: prom/prometheus:latest
-    container_name: prometheus-redis
-    restart: unless-stopped
-    volumes:
-      - ./config/prometheus-redis.yml:/etc/prometheus/prometheus.yml
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-    ports:
-      - "9092:9090"
-    networks:
-      - monitoring
-
   grafana:
     image: grafana/grafana:latest
     container_name: grafana

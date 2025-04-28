@@ -54,12 +54,3 @@ def adjust_prometheus_url(original_url):
 
     return original_parsed._replace(netloc=new_netloc).geturl()
 
-
-def fetch_metrics(prom_url):
-    """Fetch metrics from specific Prometheus instance"""
-    try:
-        response = requests.get(f"{prom_url}/api/v1/label/__name__/values", timeout=10)
-        return response.json().get('data', []) if response.ok else []
-    except Exception as e:
-        st.error(f"Metrics fetch failed: {str(e)}")
-        return []

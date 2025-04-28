@@ -1,8 +1,8 @@
 postgres:
-  database_name: sales_data
+  database_name: sales_db
   database_desc: This database contains sample sales data.
   tables:
-    - table_name: sales
+    - table_name: sales_data
       table_desc: This table contains sales transaction data.
       columns_metadata:
         ORDERNUMBER: Unique identifier for each order.

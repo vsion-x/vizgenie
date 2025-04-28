@@ -41,12 +41,23 @@ def fetch_datasources():
     if response.status_code == 200:
         processed_ds = []
         for ds in response.json():
-            # Only process Prometheus datasources
-            if ds.get('type') == 'prometheus':
-                # Create a copy to avoid modifying original data
-                modified_ds = ds.copy()
-                modified_ds['adjusted_url'] = prometheus.adjust_prometheus_url(ds.get('url', ''))
-                processed_ds.append(modified_ds)
+            match ds.get('typeName'):
+                case 'Prometheus':
+                    modified_ds = ds.copy()
+                    modified_ds['adjusted_url'] = prometheus.adjust_prometheus_url(ds.get('url', ''))
+                    processed_ds.append(modified_ds)
+                case 'PostgreSQL':
+                    modified_ds = ds.copy()
+                    modified_ds['adjusted_url'] = ds.get('url', '')
+                    modified_ds['type'] = 'postgres'
+                    modified_ds['name'] = ds.get('name', '')
+                    modified_ds['uid'] = ds.get('uid', '')
+                    processed_ds.append(modified_ds)
+                    pass
+                case _:
+                    # Handle other types of datasources if necessary
+                    pass
         return processed_ds
+    
     st.error("Failed to fetch datasources")
     return []
