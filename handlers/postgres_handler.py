@@ -2,8 +2,9 @@ import yaml
 from pathlib import Path
 
 class PostgresHandler:
-    def __init__(self):
+    def __init__(self, url):
         self.metadata = self.load_metadata()
+        self.url = url
         
     def load_metadata(self):
         metadata_path = Path(__file__).parent.parent / 'metadata' / 'metadata.yaml'

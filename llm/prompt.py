@@ -1,6 +1,9 @@
 # Function to generate PromQL query using OpenAI
 import json
-from client import groq
+import os
+from handlers.groq_handler import GroqHandler as groq
+
+groq_handler = groq(os.getenv("GROQ_API_KEY", "").split(","))
 
 
 def generate_promql_query(user_query_map):
@@ -60,7 +63,7 @@ def generate_promql_query(user_query_map):
         `"node_cpu_seconds_total"`
     """
 
-    result = groq.groqrequest(prompt)
+    result = groq_handler.groqrequest(prompt)
 
     if result.startswith("```"):
         result = result.strip("`").strip()
@@ -179,7 +182,7 @@ def generate_grafana_dashboard(query_responses):
     Output ONLY valid JSON. No markdown or explanations.
     """
 
-    result = groq.groqrequest(prompt)
+    result = groq_handler.groqrequest(prompt)
 
     if result.startswith("```"):
         result = result.strip("`").strip()
@@ -271,7 +274,7 @@ def get_query_metrics_labels(queries):
     5. Never include example metrics - only real suggestions
     """
 
-    result = groq.groqrequest(prompt)
+    result = groq_handler.groqrequest(prompt)
 
     if result.startswith("```"):
         result = result.strip("`").strip()
@@ -346,6 +349,6 @@ def generate_sql_query(query, datasource, metadata_context):
         [SELECT "YEAR_ID", "MONTH_ID", SUM("SALES") AS "monthly_sales" FROM "sales_data" GROUP BY "YEAR_ID", "MONTH_ID" ORDER BY "YEAR_ID" DESC, "MONTH_ID" ASC;]
 
     """
-    result = groq.groqrequest(prompt)
+    result = groq_handler.groqrequest(prompt)
 
     return result

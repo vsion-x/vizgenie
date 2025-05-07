@@ -1,11 +1,10 @@
 import streamlit as st
-from svc import prometheus, vectordbs
 import requests
 from loguru import logger
 import re
 
 class PrometheusHandler:
-    def __init__(self):
+    def __init__(self, url):
         self.ALLOWED_METRIC_LABELS = [
             "instance", "job", "name", "fstype", "persistentvolumeclaim", "service", 
             "mountpoint", "mode", "cpu", "device", "namespace", "pod", "container", 
@@ -14,16 +13,18 @@ class PrometheusHandler:
             "table", "user", "command", "queue", "host", "availability_zone", 
             "instance_type", "cluster", "role"
         ]
+        self.url = url
 
-    def fetch_metrics_data(self, ds):
+    def fetch_metrics_data(self, ds, vectordbs_handler):
     
         """Fetch metrics from specific Prometheus instance"""
         try:
-            response = requests.get(f"{ds['adjusted_url']}/api/v1/label/__name__/values", timeout=10)
+            print("--url", self.url)
+            response = requests.get(f"{self.url}/api/v1/label/__name__/values", timeout=10)
             metrics=response.json().get('data', []) if response.ok else []
             logger.info(f"Metrics fetch response: {response.status_code}")
             if response.ok:
-                count = vectordbs.store_metrics(
+                count = vectordbs_handler.store_metrics(
                     metrics=metrics,
                     ds_uid=ds['uid'],
                 )
@@ -59,30 +60,6 @@ class PrometheusHandler:
             except Exception as e:
                 st.error(f"Label fetch failed for {metric}: {str(e)}")
         return []
-    
-    def similarity_search(self, response, query, ds_options):
-            ds_name = response['datasource']
-            metrics = response['metrics']
-            labels = response['related_metrics_labels']
-
-            logger.info(f"Processing query: {query} from {ds_name}")
-            
-            if query and ds_name:
-                ds_uid, ds_url = ds_options[ds_name]
-                
-                similar_metrics = vectordbs.query_metrics_batch(
-                    metric_names=metrics,
-                    ds_uid=ds_uid,
-                    n_results=5
-                )
-                if similar_metrics:
-                    st.session_state.similar_metrics = similar_metrics
-                    st.session_state.similar_metrics_labels = labels
-                    st.session_state.ds_uid = ds_uid
-                    st.session_state.ds_url = ds_url
-                else:
-                    st.error("No similar metrics found.")
-            return similar_metrics
     
     def process_final_response(self, ds_uuid, query,similar_metrics, labels):
         return {
