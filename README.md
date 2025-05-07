@@ -159,43 +159,123 @@ VizGenie is an intelligent tool that transforms natural language queries into Gr
 - Prometheus: `http://localhost:9090`
 - PostgreSQL: `postgresql://postgres:admin@localhost:5433/sales_db`
 
-### Sample Database
+### 🔍 Sample Database
 
-A sample database is included in the repository:
-- Database schema and metadata can be found in the `metadata/` directory
-- Sample data is provided in CSV format in the root directory
-- Default PostgreSQL credentials:
-  - Database: `sales_db`
-  - User: `postgres`
-  - Password: `admin`
-  - Port: `5433`
+<div style="background: #f0f7ff; padding: 20px; border-radius: 8px; margin: 20px 0;">
+  <h2>🔍 Sample Database</h2>
+  
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 15px 0;">
+    <div>
+      <h3>📂 Included Files</h3>
+      <ul>
+        <li>Database schema and metadata in <code>metadata/</code> directory</li>
+        <li>Sample data in CSV format in the root directory</li>
+      </ul>
+    </div>
+    <div>
+      <h3>🔑 Default PostgreSQL Credentials</h3>
+      <table style="width:100%; border-collapse: collapse;">
+        <tr>
+          <td>Database:</td>
+          <td><code>sales_db</code></td>
+        </tr>
+        <tr>
+          <td>User:</td>
+          <td><code>postgres</code></td>
+        </tr>
+        <tr>
+          <td>Password:</td>
+          <td><code>admin</code></td>
+        </tr>
+        <tr>
+          <td>Port:</td>
+          <td><code>5433</code></td>
+        </tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+### 🚀 Deployment
 
 ### 🐳 Docker Deployment (Recommended)
 
-1. Ensure you have Docker and Docker Compose installed on your system. 
-2. Navigate to the root directory of the VizGenie project in your terminal. 
-3. Run the following command to spin up the development environment: 
-```bash 
-docker-compose up 
-```
-5. Once the containers are running, you should be able to access the VizGenie UI in your web browser, typically at `http://localhost:8501`.
+<div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 15px 0;">
+  <h3>Prerequisites</h3>
+  <ul>
+    <li>Docker installed on your system</li>
+    <li>Docker Compose installed</li>
+  </ul>
+  
+  <h3>Steps</h3>
+  
+  <div style="background: white; padding: 15px; border-radius: 8px; margin: 10px 0;">
+    <h4>1. Navigate to project directory</h4>
+    <pre style="background: #2d2d2d; color: #f8f8f2; padding: 10px; border-radius: 4px; overflow-x: auto;">
+    cd /path/to/vizgenie</pre>
+  </div>
+  
+  <div style="background: white; padding: 15px; border-radius: 8px; margin: 10px 0;">
+    <h4>2. Start the containers</h4>
+    <pre style="background: #2d2d2d; color: #f8f8f2; padding: 10px; border-radius: 4px; overflow-x: auto;">
+    docker-compose up -d</pre>
+  </div>
+  
+  <div style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin: 15px 0 0 0; display: flex; align-items: center;">
+    <div style="margin-right: 15px;">
+      <img src="https://img.icons8.com/color/48/000000/info.png" width="24" height="24"/>
+    </div>
+    <div>
+      <strong>Access the application:</strong> Once the containers are running, open your browser and navigate to <a href="http://localhost:8501">http://localhost:8501</a>
+    </div>
+  </div>
+</div>
 
 ### 🐍 Local Python Setup
-1. Ensure you have Python 3 and Streamlit installed. If not, you can install them using pip: 
-```bash 
-pip install -r requirements.txt 
-```
-2. Navigate to the root directory of the VizGenie project in your terminal. 
-3. Run the Streamlit application using the following command:
 
-```bash 
-streamlit run main.py 
-``` 
-or 
-```bash 
-python3 -m streamlit run main.py 
-```
+<div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 15px 0;">
+  <h3>Prerequisites</h3>
+  <ul>
+    <li>Python 3.8 or higher</li>
+    <li>pip package manager</li>
+  </ul>
+  
+  <h3>Steps</h3>
+  
+  <div style="background: white; padding: 15px; border-radius: 8px; margin: 10px 0;">
+    <h4>1. Install dependencies</h4>
+    <pre style="background: #2d2d2d; color: #f8f8f2; padding: 10px; border-radius: 4px; overflow-x: auto;">
+    pip install -r requirements.txt</pre>
+  </div>
+  
+  <div style="background: white; padding: 15px; border-radius: 8px; margin: 10px 0;">
+    <h4>2. Run the application</h4>
+    <pre style="background: #2d2d2d; color: #f8f8f2; padding: 10px; border-radius: 4px; overflow-x: auto;">
+    streamlit run main.py</pre>
+    <p style="margin: 5px 0 0 0; font-size: 0.9em; color: #666;">or</p>
+    <pre style="background: #2d2d2d; color: #f8f8f2; padding: 10px; border-radius: 4px; overflow-x: auto; margin-top: 5px;">
+    python3 -m streamlit run main.py</pre>
+  </div>
+  
+  <div style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin: 15px 0 0 0; display: flex; align-items: center;">
+    <div style="margin-right: 15px;">
+      <img src="https://img.icons8.com/color/48/000000/info.png" width="24" height="24"/>
+    </div>
+    <div>
+      <strong>Access the application:</strong> The application will automatically open in your default web browser at <a href="http://localhost:8501">http://localhost:8501</a>
+    </div>
+  </div>
+</div>
 
-4. Streamlit will automatically open a new tab in your web browser with the VizGenie UI.
+## 📜 License
 
-This project is licensed under the **MIT License**. See the `LICENSE` file for more information.
+This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for more information.
+
+<div align="center" style="margin-top: 50px;">
+  <p>Made with ❤️ by VizGenie Team</p>
+  <p>
+    <a href="#">Documentation</a> •
+    <a href="#">Contribute</a> •
+    <a href="#">Report Issues</a>
+  </p>
+</div>
