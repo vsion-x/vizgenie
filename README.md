@@ -88,7 +88,7 @@ VizGenie is an intelligent tool that transforms natural language queries into Gr
 <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 10px 0;">
   <table>
     <tr>
-      <td><img src="https://img.icons8.com/color/24/000000/api-key.png"/></td>
+      <td><img src="https://img.icons8.com/color/24/000000/key.png"/></td>
       <td><strong>Groq API Key</strong></td>
       <td><a href="https://console.groq.com/">Get it here</a></td>
     </tr>
