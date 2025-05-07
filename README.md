@@ -25,13 +25,13 @@ VizGenie is an intelligent tool that transforms natural language queries into Gr
   <table>
     <tr>
       <td align="center">
-        <img src="https://img.icons8.com/color/48/000000/conversation.png" width="48" height="48"/>
+        <div style="font-size: 48px;">💬</div>
         <h3>Natural Language to Visualization</h3>
         <p>Describe metrics in plain English</p>
         <img src="https://img.shields.io/badge/✅-Feature_Enabled-success">
       </td>
       <td align="center">
-        <img src="https://img.icons8.com/color/48/000000/grafana.png" width="48" height="48"/>
+        <div style="font-size: 48px;">📊</div>
         <h3>Grafana Integration</h3>
         <p>Auto-create and deploy dashboards</p>
         <img src="https://img.shields.io/badge/✅-Feature_Enabled-success">
@@ -39,13 +39,13 @@ VizGenie is an intelligent tool that transforms natural language queries into Gr
     </tr>
     <tr>
       <td align="center">
-        <img src="https://img.icons8.com/color/48/000000/database.png" width="48" height="48"/>
+        <div style="font-size: 48px;">🔌</div>
         <h3>Multi-Data Source</h3>
         <p>Works with Prometheus and PostgreSQL</p>
         <img src="https://img.shields.io/badge/✅-Feature_Enabled-success">
       </td>
       <td align="center">
-        <img src="https://img.icons8.com/color/48/000000/artificial-intelligence.png" width="48" height="48"/>
+        <div style="font-size: 48px;">🤖</div>
         <h3>AI-Powered Insights</h3>
         <p>Context-aware metric recommendations</p>
         <img src="https://img.shields.io/badge/✅-Feature_Enabled-success">
@@ -74,7 +74,7 @@ VizGenie is an intelligent tool that transforms natural language queries into Gr
     <img src="https://img.shields.io/badge/1.-Prerequisites-4CAF50?style=for-the-badge&logo=check-circle&logoColor=white" alt="Prerequisites">
   </a>
   <span>→</span>
-  <a href="#-configuration">
+  <a href="#%EF%B8%8F-configuration">
     <img src="https://img.shields.io/badge/2.-Configuration-2196F3?style=for-the-badge&logo=cog&logoColor=white" alt="Configuration">
   </a>
   <span>→</span>
