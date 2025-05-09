@@ -54,6 +54,12 @@ VizGenie is an intelligent tool that transforms natural language queries into Gr
   </table>
 </div>
 
+## Architecture Diagram
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/vsion-x/vizgenie/main/assets/architecture.png" alt="VizGenie Architecture" width="600">
+</div>
+
 ## 🎥 Demo
 
 <div align="center">
