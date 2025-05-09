@@ -1,33 +1,29 @@
 apiVersion: 1
 
-# Add this block to delete old datasources
 deleteDatasources:
-  - name: "Loki"
-  - name: "Tempo"
-  - name: "prometheus"
-  - name: "prometheus-main"
-  - name: "prometheus-node"
-  - name: "prometheus-redis"
-  - name: "Postgres"
-  - name: "grafana-postgresql-datasource"
-  - name: "postgres"
+  - name: "Node Exporter Prometheus"
+  - name: "Prometheus (Self & cAdvisor)"
+  - name: "Redis Exporter Prometheus"
 
 datasources:
-  - name: "Prometheus (Self & cAdvisor)"
+  - name: "Prometheus"
     type: prometheus
     access: proxy
     url: http://prometheus:9090
     isDefault: true
     editable: true
 
-  - name: "Node Exporter Prometheus"
-    type: prometheus
-    access: proxy
-    url: http://prometheus-node:9090
-    isDefault: false
-
-  - name: "Redis Exporter Prometheus"
-    type: prometheus
-    access: proxy
-    url: http://prometheus-redis:9090
-    isDefault: false
+  - name: PostgreSQL
+    type: postgres
+    url: postgres:5432
+    database: sales_db
+    user: postgres
+    secureJsonData:
+      password: admin
+    editable: false
+    jsonData:
+      sslmode: disable
+      defaultSchema: public
+      maxOpenConns: 10
+      maxIdleConns: 5
+      connMaxLifetime: 14400

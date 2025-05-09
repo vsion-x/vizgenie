@@ -1,0 +1,32 @@
+postgres:
+  database_name: sales_db
+  database_desc: This database contains sample sales data.
+  tables:
+    - table_name: sales_db
+      table_desc: This table contains sales transaction data.
+      columns_metadata:
+        ORDERNUMBER: Unique identifier for each order.
+        QUANTITYORDERED: The quantity of products ordered.
+        PRICEEACH: The price of each individual product.
+        ORDERLINENUMBER: The line number for each item in an order.
+        SALES: The total sales amount for the order line.
+        ORDERDATE: The date when the order was placed.
+        STATUS: The status of the order (e.g., Shipped, Canceled).
+        QTR_ID: Quarter of the year when the order was placed.
+        MONTH_ID: Month when the order was placed.
+        YEAR_ID: Year when the order was placed.
+        PRODUCTLINE: Category of the product.
+        MSRP: Manufacturer's Suggested Retail Price.
+        PRODUCTCODE: Unique code for the product.
+        CUSTOMERNAME: Name of the customer who placed the order.
+        PHONE: Phone number of the customer.
+        ADDRESSLINE1: Address line 1 of the customer.
+        ADDRESSLINE2: Address line 2 of the customer (if available).
+        CITY: City of the customer.
+        STATE: State of the customer (if available).
+        POSTALCODE: Postal code of the customer.
+        COUNTRY: Country of the customer.
+        TERRITORY: Sales territory of the customer.
+        CONTACTLASTNAME: Last name of the customer contact person.
+        CONTACTFIRSTNAME: First name of the customer contact person.
+        DEALSIZE: Size of the deal based on the sales amount.
