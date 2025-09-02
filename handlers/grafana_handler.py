@@ -1,4 +1,3 @@
-
 import requests
 
 class GrafanaHandler:
@@ -38,7 +37,6 @@ class GrafanaHandler:
         if response.status_code == 200:
             processed_ds = []
             for ds in response.json():
-                print("========+++++++++", ds)
                 match ds.get('typeName'):
                     case 'Prometheus':
                         modified_ds = ds.copy()

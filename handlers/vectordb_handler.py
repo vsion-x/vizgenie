@@ -16,7 +16,10 @@ class VectorDBHandler:
         try:
             collection = self.get_collection(ds_uid)
             existing = collection.get()['ids']
+            print("existing", existing)
             new_metrics = [m for m in metrics if m not in existing]
+
+            print("new_metrics", new_metrics)
             
             if new_metrics:
                 collection.add(documents=new_metrics, ids=new_metrics)

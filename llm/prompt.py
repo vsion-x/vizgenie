@@ -7,220 +7,168 @@ groq_handler = groq(os.getenv("GROQ_API_KEY", "").split(","))
 
 
 def generate_promql_query(user_query_map):
-
-    
     prompt = f"""
-        Context:You are generating PromQL queries to retrieve system and application metrics from Prometheus.
+        Context: You are generating Grafana panel configurations for Prometheus metrics with appropriate visualizations.
 
-        Objective:Create accurate, optimized PromQL queries strictly using the provided input. Prioritize custom metrics and apply only the given labels.
+        Objective: Create accurate PromQL queries and choose the BEST visualization type based on the metric characteristics.
 
-        Style:lear, minimal, and Prometheus-friendly.
+        STRICT REQUIREMENTS:
+        - Use ONLY the provided `similar_metrics` and `labels`
+        - MUST use the provided `datasource` UID
+        - Choose appropriate visualization type based on metric content
 
-        Tone:Professional and concise.
-
-        Audience:Engineers and analysts experienced with Prometheus.
-
-        Response:Return a valid JSON object only — no extra text or explanation.
+        VISUALIZATION SELECTION RULES for Prometheus:
+        1. "timeseries" - For metrics with time-based patterns (rates, counters)
+        2. "gauge" - For current value metrics (memory usage, temperature)
+        3. "stat" - For single numeric values
+        4. "piechart" - For categorical distributions (by instance, job, etc.)
+        5. "bargauge" - For ranked comparisons
 
         Input array:  
         {json.dumps(user_query_map, indent=4)}
 
-        Guidelines:
-
-        1. For each item:
-        - Use the `mandatory_datasource_uuid` (required).
-        - Use only the `mandatory_similar_metrics`. **Do not use any other metrics.**
-        - Use only the `mandatry_corresponding_metrics_labels`. **Do not add or infer labels.**
-
-        2. Follow PromQL best practices:
-        - Use text-based identifiers (e.g., `instance`, `job`) and include an `id` label when aggregating.
-        - Group only by provided labels.
-        - Ensure performance and correctness.
-
-        3. Format output as:
+        OUTPUT FORMAT - MUST RETURN EXACTLY THIS JSON STRUCTURE:
         {{
-            "result": [
+            "panels": [
                 {{
-                    "mandatory_datasource_uuid": "value",
-                    "userquery": "value",
-                    "query": "Generated PromQL query"
+                    "type": "$APPROPRIATE_VIS_TYPE",
+                    "title": "Panel based on {user_query_map[0]['original_query']}",
+                    "datasource": {{
+                        "type": "prometheus",
+                        "uid": "{user_query_map[0]['datasource']}"
+                    }},
+                    "targets": [
+                        {{
+                            "expr": "$GENERATED_PROMQL_QUERY",
+                            "refId": "A",
+                            "format": "time_series",
+                            "legendFormat": "{{{{label}}}}"
+                        }}
+                    ],
+                    "gridPos": {{
+                        "x": 0,
+                        "y": 0,
+                        "w": 12,
+                        "h": 8
+                    }},
+                    "options": {{
+                        "tooltip": {{
+                            "mode": "single"
+                        }}
+                    }}
                 }}
             ]
         }}
 
-        Example queries:
+        VISUALIZATION EXAMPLES:
 
-        - List all containers:  
-        `"count(container_memory_usage_bytes) by (container_name)"`
+        1. TIME SERIES (CPU usage):
+        {{
+            "type": "timeseries",
+            "title": "CPU Usage",
+            "targets": [{{
+                "expr": "rate(node_cpu_seconds_total[5m])",
+                "format": "time_series",
+                "legendFormat": "{{{{mode}}}}"
+            }}]
+        }}
 
-        - Highest CPU container:  
-        `"topk(1, sum by (container_name) (rate(container_cpu_usage_seconds_total[5m])))"`
+        2. GAUGE (Memory usage):
+        {{
+            "type": "gauge",
+            "title": "Memory Usage",
+            "targets": [{{
+                "expr": "node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes * 100",
+                "format": "time_series"
+            }}]
+        }}
 
-        - Redis clients:  
-        `"redis_connected_clients"`
+        3. PIE CHART (CPU by mode):
+        {{
+            "type": "piechart",
+            "title": "CPU Time by Mode",
+            "targets": [{{
+                "expr": "sum by (mode) (rate(node_cpu_seconds_total[5m]))",
+                "format": "time_series"
+            }}]
+        }}
 
-        - Node CPU:  
-        `"node_cpu_seconds_total"`
+        CRITICAL: Return ONLY valid JSON. No additional text or explanations.
     """
-
     result = groq_handler.groqrequest(prompt)
-
+    
     if result.startswith("```"):
         result = result.strip("`").strip()
     if result.lower().startswith("json"):
         result = result[4:].strip()
-    # Attempt to parse the JSON response
+    
     try:
         result = json.loads(result)
     except json.JSONDecodeError:
         return {"error": "Failed to parse JSON response from LLM"}
 
-    if result.get("error"):
-        return {"error": "Failed to generate PromQL query from Groq API"}
-
     return result
 
 
-def generate_grafana_dashboard(query_responses):
+
+def generate_grafana_dashboard(panels):
     """
-    Generate a Grafana 9.x dashboard JSON supporting both Prometheus and PostgreSQL datasources
+    Generate a Grafana 9.x dashboard JSON from panel configurations
     """
+    if not panels:
+        return {"error": "No panels provided for dashboard generation"}
+
     prompt = f"""
-    Create Grafana 9.x dashboard JSON that supports both Prometheus and PostgreSQL datasources.
-    Use this structure for mixed datasource dashboards:
+        Context: You are generating a complete Grafana 9.x dashboard JSON from pre-generated panel configurations.
 
-    Input configuration:
-    {json.dumps(query_responses, indent=2)}
+        Objective: Create a properly structured Grafana dashboard with appropriate visualization options.
 
-    Base template:
-    {{
-        "title": "Generated Dashboard",
-        "uid": "auto-dash-{hash(json.dumps(query_responses))}",
-        "panels": [
-            {{
-                "type": "$VIS_TYPE",
-                "title": "Panel Title",
-                "datasource": {{
-                    "type": "$DATASOURCE_TYPE",
-                    "uid": "$DATASOURCE_UID"
-                }},
-                "targets": [
-                    {{
-                        "expr": "$QUERY",          // PromQL
-                        "rawSql": "$QUERY",        // PostgreSQL
-                        "refId": "A",
-                        "format": "$RESULT_FORMAT",
-                        "legendFormat": "{{{{label}}}}"  // For time series
-                    }}
-                ],
-                "options": {{/* Visualization-specific options */}},
-                "gridPos": {{ "x": 0, "y": 0, "w": 12, "h": 8 }}
-            }}
-        ],
-        "schemaVersion": 36
-    }}
+        Input Panels:
+        {json.dumps(panels, indent=2)}
 
-    Visualization Rules:
+        STRICT REQUIREMENTS:
+        1. MUST use EXACTLY the provided panels without modification
+        2. MUST arrange panels in a logical grid layout
+        3. MUST maintain all existing panel configurations
+        4. ADD appropriate visualization options based on panel type
 
-    1. Prometheus Panels:
-    - Timeseries: Metrics with timestamped values
-    - Piechart: Aggregated categorical distributions
-    - Gauge/Bargauge: Single values/comparisons
-    - Stat: Simple numeric displays
-    - Format: "time_series" for metrics, "table" for aggregations
+        VISUALIZATION OPTIONS BY TYPE:
 
-    2. PostgreSQL Panels:
-    - Table: Raw SQL results
-    - Timeseries: Time-based queries (must have time column)
-    - Stat: Single value results
-    - Piechart: Category distributions
-    - Format: "table" for most queries, "time_series" if time column exists
+        - "piechart": {{"pieType": "pie", "displayLabels": ["value", "name"]}}
+        - "bargauge": {{"orientation": "horizontal", "displayMode": "basic"}}
+        - "stat": {{"colorMode": "value", "graphMode": "none"}}
+        - "timeseries": {{"legend": {{"showLegend": true}}, "tooltip": {{"mode": "single"}}}}
+        - "gauge": {{"orientation": "horizontal", "showThresholdMarkers": true}}
 
-    3. Panel Type Mapping:
-    | Query Type        | Suggested Panel   | Format       |
-    |-------------------|-------------------|--------------|
-    | Prometheus Range  | timeseries        | time_series  |
-    | Prometheus Aggr.  | piechart/stat     | table        |
-    | SQL SELECT        | table             | table        |
-    | SQL Aggregation   | stat/piechart     | table        |
-    | SQL Time Series   | timeseries        | time_series  |
+        DASHBOARD STRUCTURE:
+        {{
+            "title": "AI-Generated Dashboard",
+            "uid": "auto-dash-{hash(str(panels))}",
+            "time": {{ "from": "now-6h", "to": "now" }},
+            "panels": [/* EXACTLY THE PROVIDED PANELS WITH GRID POSITIONS */],
+            "schemaVersion": 36
+        }}
 
-    4. Special Handling:
-    - For PostgreSQL timeseries:
-      * Query MUST return a time column named 'time'
-      * Include "convertToDateType": true in fieldConfig
-    - Mix datasources in same dashboard
-    - Maintain consistent grid layout
+        GRID LAYOUT RULES:
+        - Use 12-column grid system
+        - Position panels vertically: panel[n].gridPos.y = panel[n-1].gridPos.y + panel[n-1].gridPos.h
+        - Start with x=0, y=0 for first panel
 
-    5. Examples:
-    - Prometheus CPU Usage:
-      {{
-        "type": "timeseries",
-        "datasource": {{"type":"prometheus","uid":"DS_UID"}},
-        "targets": [{{
-            "expr": "rate(node_cpu_seconds_total[5m])",
-            "format": "time_series"
-        }}]
-      }}
-
-    - PostgreSQL Sales Report:
-      {{
-        "type": "table",
-        "datasource": {{"type":"postgres","uid":"DS_UID"}},
-        "targets": [{{
-            "rawSql": "SELECT product, SUM(sales) FROM orders GROUP BY product",
-            "format": "table"
-        }}]
-      }}
-
-    - Mixed Dashboard Layout:
-      "panels": [
-        {{/* Prometheus panel */ "gridPos": {{"x":0,"y":0,"w":12,"h":8}} }},
-        {{/* Postgres panel */   "gridPos": {{"x":0,"y":8,"w":12,"h":8}} }}
-      ]
-
-    Output ONLY valid JSON. No markdown or explanations.
+        CRITICAL: Return ONLY valid JSON. No additional text or explanations.
     """
 
     result = groq_handler.groqrequest(prompt)
-
+    
     if result.startswith("```"):
         result = result.strip("`").strip()
     if result.lower().startswith("json"):
         result = result[4:].strip()
 
-
     try:
-        result = json.loads(result)
+        dashboard_json = json.loads(result)
+        return dashboard_json
     except json.JSONDecodeError as e:
-        return {"error": f"Failed to parse JSON: {str(e)}"}
-    
-    print("========>>> result", result)
-
-    try:
-        for panel in result.get("panels", []):
-            # Ensure consistent datasource format
-            if "datasource" in panel:
-                if isinstance(panel["datasource"], str):
-                    panel["datasource"] = {
-                        "type": "prometheus" if "prometheus" in panel["datasource"].lower() else "postgres",
-                        "uid": panel["datasource"]
-                    }
-            
-            # Add PostgreSQL time conversion
-            if panel["datasource"]["type"] == "postgres" and panel["type"] == "timeseries":
-                panel.setdefault("fieldConfig", {})
-                panel["fieldConfig"]["defaults"] = {
-                    "unit": "dateTimeAsIso",
-                    "custom": {
-                        "convertToDateType": True
-                    }
-                }
-
-        return result
-    except Exception as e:
-        return {"error": f"Dashboard post-processing failed: {str(e)}"}
-
+        return {"error": f"Failed to parse JSON response: {str(e)}"}
 
 def get_query_metrics_labels(queries):
     prompt = f"""
@@ -297,58 +245,138 @@ def get_query_metrics_labels(queries):
     return result
 
     
+
 def generate_sql_query(query, datasource, metadata_context):
     prompt = f"""
-        Context:
-        You are an expert SQL generator for analytical systems. Your goal is to create valid, optimized SQL queries based strictly on the provided schema and metadata.
+        Context: You are generating Grafana panel configurations for SQL-based datasources with appropriate visualizations.
 
-        Key Instructions:
+        Objective: Create optimized SQL queries and choose the BEST visualization type based on the query content.
+
+        STRICT REQUIREMENTS:
         - Use ONLY the columns and tables exactly as defined in the schema: {metadata_context}
-        - Column names and table names are case-sensitive. Always use double quotes (") around them.
-        - Mandatory datasource UUID: {datasource}
+        - Column and table names are case-sensitive. ALWAYS use double quotes (") around identifiers.
+        - MUST use the datasource UUID: {datasource}
+        - MUST return complete Grafana panel configuration
 
-        SQL Style:
-        - ANSI-SQL compliant
-        - Well-formatted and readable
+        VISUALIZATION SELECTION RULES:
+        Choose the MOST APPROPRIATE visualization type based on the query results:
+
+        1. "piechart" - For categorical data with percentages (GROUP BY queries with 2-10 categories)
+        2. "bargauge" - For single value comparisons or rankings (LIMIT 5-10 results)
+        3. "stat" - For single numeric values (COUNT, SUM, AVG with no grouping)
+        4. "timeseries" - For time-based data (must include time column)
+        5. "table" - ONLY for raw data display or complex multi-column results
+
+        SQL Guidelines:
+        - ANSI-SQL compliant, well-formatted and readable
         - Prefer CTEs for multi-step queries
-        - Always use explicit JOINs
-        - Never use SELECT *
-        - Use database-specific functions only if mentioned
+        - Always use explicit JOINs with proper conditions
+        - Never use SELECT * - specify columns explicitly
 
-        Output Format:
-        Return only valid JSON with the structure:
+        User Query: {query}
+
+        OUTPUT FORMAT - MUST RETURN EXACTLY THIS JSON STRUCTURE:
         {{
-            "result": [
+            "panels": [
                 {{
-                    "mandatory_datasource_uuid": "value",
-                    "userquery": "value",
-                    "query": "Generated PromQL query"
+                    "type": "$APPROPRIATE_VIS_TYPE",  // piechart, bargauge, stat, timeseries, or table
+                    "title": "Descriptive title based on user query",
+                    "datasource": {{
+                        "type": "postgres",
+                        "uid": "{datasource}"
+                    }},
+                    "targets": [
+                        {{
+                            "rawSql": "$GENERATED_SQL_QUERY",
+                            "refId": "A",
+                            "format": "table",  // Always use "table" for SQL queries
+                            "datasource": {{
+                                "type": "postgres",
+                                "uid": "{datasource}"
+                            }}
+                        }}
+                    ],
+                    "gridPos": {{
+                        "x": 0,
+                        "y": 0,
+                        "w": 12,
+                        "h": 8
+                    }},
+                    "options": {{
+                        "showHeader": true,
+                        "sortBy": [],
+                        "pieType": "pie",  // For piechart
+                        "orientation": "horizontal"  // For bargauge
+                    }}
                 }}
             ]
         }}
 
-        Important:
-        - Quote all identifiers ("TABLE_NAME", "COLUMN_NAME") to respect case-sensitivity.
-        - If a table or column does not exist, return:
-        {{ "error": "Invalid table or column in schema" }}
-        - If a JOIN lacks a condition, return:
-        {{ "error": "Missing join condition" }}
+        VISUALIZATION EXAMPLES:
 
-        User Query Input:
-        {query}
+        1. PIE CHART (categorical distribution):
+        {{
+            "type": "piechart",
+            "title": "Sales by Product Line",
+            "targets": [{{
+                "rawSql": "SELECT \"PRODUCTLINE\", SUM(\"SALES\") AS \"value\" FROM \"sales_db\" GROUP BY \"PRODUCTLINE\" ORDER BY \"value\" DESC;",
+                "refId": "A",
+                "format": "table"
+            }}],
+            "options": {{
+                "pieType": "pie",
+                "displayLabels": ["name", "value"]
+            }}
+        }}
 
-        Examples:
+        2. BAR GAUGE (ranked comparisons):
+        {{
+            "type": "bargauge", 
+            "title": "Top 5 Customers by Sales",
+            "targets": [{{
+                "rawSql": "SELECT \"CUSTOMERNAME\", SUM(\"SALES\") AS \"value\" FROM \"sales_db\" GROUP BY \"CUSTOMERNAME\" ORDER BY \"value\" DESC LIMIT 5;",
+                "refId": "A",
+                "format": "table"
+            }}],
+            "options": {{
+                "orientation": "horizontal",
+                "displayMode": "basic"
+            }}
+        }}
 
-        - Simple Selection:
-        [SELECT "CUSTOMERNAME", "COUNTRY", "SALES" FROM "sales_data";]
+        3. STAT (single value):
+        {{
+            "type": "stat",
+            "title": "Total Sales",
+            "targets": [{{
+                "rawSql": "SELECT SUM(\"SALES\") AS \"value\" FROM \"sales_db\";",
+                "refId": "A",
+                "format": "table"
+            }}],
+            "options": {{
+                "colorMode": "value",
+                "graphMode": "none"
+            }}
+        }}
 
-        - Aggregation:
-        [SELECT "COUNTRY", SUM("SALES") AS "total_sales" FROM "sales_data" GROUP BY "COUNTRY" ORDER BY "total_sales" DESC;]
+        4. TIME SERIES (time-based data):
+        {{
+            "type": "timeseries",
+            "title": "Sales Over Time",
+            "targets": [{{
+                "rawSql": "SELECT \"DATE\" as \"time\", SUM(\"SALES\") AS \"value\" FROM \"sales_db\" GROUP BY \"DATE\" ORDER BY \"DATE\";",
+                "refId": "A",
+                "format": "table"
+            }}],
+            "options": {{
+                "legend": {{
+                    "showLegend": true
+                }}
+            }}
+        }}
 
-        - Window Function:
-        [SELECT "YEAR_ID", "MONTH_ID", SUM("SALES") AS "monthly_sales" FROM "sales_data" GROUP BY "YEAR_ID", "MONTH_ID" ORDER BY "YEAR_ID" DESC, "MONTH_ID" ASC;]
-
+        CRITICAL: Return ONLY valid JSON. No additional text, explanations, or markdown formatting.
+        Always use double quotes for SQL identifiers.
     """
     result = groq_handler.groqrequest(prompt)
-
     return result

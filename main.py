@@ -1,4 +1,6 @@
 import streamlit as st
+import os
+import json
 
 st.set_page_config(
     page_title="VizGenie",
@@ -7,6 +9,8 @@ st.set_page_config(
 )
 
 from dotenv import load_dotenv
+load_dotenv()
+
 from handlers.prometheus_handler import PrometheusHandler
 from handlers.postgres_handler import PostgresHandler
 from handlers.grafana_handler import GrafanaHandler
@@ -16,7 +20,6 @@ import requests
 import psycopg2
 
 # Load environment variables
-load_dotenv()
 
 # Initialize session state variables if not already set
 if "prometheus_url" not in st.session_state:
@@ -480,35 +483,27 @@ def process_queries(queries, datasources):
 def handle_prometheus_query(query_text, datasource):
     """Process Prometheus query through full pipeline"""
     with st.spinner(f"🔍 Analyzing Prometheus query: '{query_text}'..."):
-        # Step 1: Get metrics from LLM
-        llm_response = prompt.get_query_metrics_labels([(query_text, datasource['name'])])
-        if llm_response.get('error'):
-            raise Exception("LLM analysis failed")
+        # ... [your existing code] ...
         
-        # Step 2: VectorDB similarity search
-        similar_metrics = vectordbs_handler.query_metrics_batch(
-            llm_response['data'][0]['metrics'],
-            datasource['uid'],
-            n_results=5
-        )
-
-        # Step 3: Discover labels
-        metric_labels = prometheus_handler.get_metrics_labels(
-            st.session_state.prometheus_url,
-            similar_metrics
-        )
-        # Step 4: Generate PromQL
-        query_context = {
-            "datasource": datasource['uid'],
-            "original_query": query_text,
-            "similar_metrics": similar_metrics,
-            "labels": metric_labels
-        }
         promql_response = prompt.generate_promql_query([query_context])
+
+        # Parse the JSON response from LLM
+        try:
+            if isinstance(promql_response, str):
+                if promql_response.startswith("```"):
+                    promql_response = promql_response.strip("`").strip()
+                if promql_response.lower().startswith("json"):
+                    promql_response = promql_response[4:].strip()
+                
+                parsed_response = json.loads(promql_response)
+            else:
+                parsed_response = promql_response  # Already parsed
+        except (json.JSONDecodeError, AttributeError) as e:
+            return {"error": f"Failed to parse PromQL response: {str(e)}"}
 
         return {
             'type': 'prometheus',
-            'data': promql_response,
+            'data': parsed_response,  # Return parsed JSON, not raw string
             'context': query_context
         }
 
@@ -522,22 +517,45 @@ def handle_postgres_query(query_text, datasource):
         sql_response = prompt.generate_sql_query(
             query=query_text,
             datasource=datasource['uid'],
-            metadata_context = metadata_context
+            metadata_context=metadata_context
         )
+
+        # Parse the JSON response from LLM
+        try:
+            if sql_response.startswith("```"):
+                sql_response = sql_response.strip("`").strip()
+            if sql_response.lower().startswith("json"):
+                sql_response = sql_response[4:].strip()
+            
+            parsed_response = json.loads(sql_response)
+        except (json.JSONDecodeError, AttributeError) as e:
+            return {"error": f"Failed to parse SQL response: {str(e)}"}
 
         return {
             'type': 'postgres',
-            'data': sql_response
+            'data': parsed_response  # Return parsed JSON, not raw string
         }
 
 def deploy_dashboard(responses):
     """Deploy final dashboard to Grafana"""
     with st.spinner("🎨 Creating beautiful dashboard..."):
-        # Generate Grafana JSON
-        dashboard_json = prompt.generate_grafana_dashboard({
-            "result": [resp['data'] for resp in responses if not resp.get('error')]
-        })
+        # Extract all panels from responses
+        all_panels = []
+        for resp in responses:
+            if not resp.get('error') and resp.get('data'):
+                # Check if response has panels array
+                if 'panels' in resp['data']:
+                    all_panels.extend(resp['data']['panels'])
+                # Handle old format where response might be direct panel
+                elif isinstance(resp['data'], dict):
+                    all_panels.append(resp['data'])
+        
+        if not all_panels:
+            st.error("😢 No valid panels found for dashboard creation")
+            return
 
+        # Generate Grafana JSON with the extracted panels
+        dashboard_json = prompt.generate_grafana_dashboard(all_panels)
         
         if dashboard_json.get('error'):
             st.error(f"😢 Failed to generate dashboard JSON: {dashboard_json['error']}")

@@ -7,6 +7,7 @@ class GroqHandler:
     def __init__(self, api_key=None):
 
         self.apikeys = api_key if api_key else os.getenv("GROQ_API_KEY", "").split(",")
+        print("apikeys", self.apikeys)
 
     def groqrequest(self, prompt):
         """Send a request to the Groq API using multiple API keys until successful or all fail."""
