@@ -20,7 +20,7 @@
 
 VizGenie is an **intelligent agentic AI system** that transforms natural language queries into production-ready Grafana dashboards. Built with **LangGraph**, it orchestrates multiple AI agents to extract metrics, generate queries (PromQL/SQL), create visualizations, and deploy dashboards automatically.
 
-## What's New in v2.0 - Agentic Architecture
+## 🌟 What's New in v2.0 - Agentic Architecture
 
 <div align="center">
   <table>
@@ -53,7 +53,7 @@ VizGenie is an **intelligent agentic AI system** that transforms natural languag
   </table>
 </div>
 
-## Core Features
+## ✨ Core Features
 
 <div align="center">
   <table>
@@ -88,7 +88,7 @@ VizGenie is an **intelligent agentic AI system** that transforms natural languag
   </table>
 </div>
 
-## Agentic Architecture
+## 🏗️ Agentic Architecture
 
 VizGenie uses a **deterministic LangGraph workflow** with specialized agents for each step:
 
@@ -108,17 +108,7 @@ graph TD
     J -->|Valid| K[Dashboard Generation Agent]
     K --> L[Deployment Agent]
     L --> M[Grafana Dashboard]
-    
-    style B fill:#e1f5ff
-    style C fill:#e1f5ff
-    style D fill:#fff3e0
-    style E fill:#fff3e0
-    style F fill:#e8f5e9
-    style H fill:#f3e5f5
-    style I fill:#f3e5f5
-    style J fill:#fce4ec
-    style K fill:#e0f2f1
-    style L fill:#e0f2f1
+
 ```
 
 ### Agent Workflow Stages
@@ -165,7 +155,7 @@ VizGenieState (TypedDict):
 | | VectorDBHandler | ChromaDB operations |
 | | GrafanaHandler | Dashboard CRUD operations |
 
-## How It Works
+## 📊 How It Works
 
 ### Example: "Show CPU utilization"
 
@@ -206,7 +196,7 @@ VizGenieState (TypedDict):
 Result: ✅ Dashboard deployed in ~3-5 seconds
 ```
 
-## Demo
+## 🎥 Demo
 
 <div align="center">
   <a href="https://www.loom.com/share/d4ebd415de14413faf23a928a728ccf9">
@@ -219,7 +209,7 @@ Result: ✅ Dashboard deployed in ~3-5 seconds
   </p>
 </div>
 
-## Getting Started
+## 🚀 Getting Started
 
 <div align="center">
   <a href="#-prerequisites">
@@ -239,7 +229,7 @@ Result: ✅ Dashboard deployed in ~3-5 seconds
   </a>
 </div>
 
-### Prerequisites
+### 📋 Prerequisites
 
 | Component | Required | How to Get |
 |-----------|----------|------------|
@@ -348,7 +338,7 @@ VizGenie includes a sample sales database for testing:
 - "Which product line generates most revenue?"
 - "Show sales by country on a map"
 
-## Usage Guide
+## 📖 Usage Guide
 
 ### Step 1: Configure Connections
 1. Open VizGenie at http://localhost:8501
@@ -380,7 +370,7 @@ Click "🔄 Refresh All Metrics" to populate the vector database with available 
 
 5. View your dashboard in Grafana!
 
-## Project Structure
+## 🏗️ Project Structure
 
 ```
 vizgenie/
@@ -413,7 +403,7 @@ vizgenie/
 └── README.md
 ```
 
-## Advanced Features
+## 🔧 Advanced Features
 
 ### Real-time Progress Tracking
 - Live workflow stage updates
@@ -482,7 +472,7 @@ vizgenie/
 4. Wait a few minutes if rate limited
 </details>
 
-## Performance Metrics
+## 📊 Performance Metrics
 
 Based on typical workloads:
 
@@ -506,11 +496,11 @@ Based on typical workloads:
 - [ ] Natural language dashboard editing
 - [ ] Integration with Slack/Teams for notifications
 
-## License
+## 📜 License
 
 This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
 
-## Acknowledgments
+## 🙏 Acknowledgments
 
 Built with amazing open-source tools:
 - [LangGraph](https://github.com/langchain-ai/langgraph) - Agent orchestration
