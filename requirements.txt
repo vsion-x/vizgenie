@@ -68,7 +68,7 @@ pillow==11.1.0
 posthog==3.24.0
 protobuf==5.29.4
 pyarrow==19.0.1
-pyasn1==0.6.1
+pyasn1==0.6.2
 pyasn1_modules==0.4.2
 pydantic==2.11.3
 pydantic_core==2.33.1
