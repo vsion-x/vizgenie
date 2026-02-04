@@ -1,4 +1,6 @@
-# Function to generate PromQL query using OpenAI
+# llm/prompt.py
+# prompt for llm
+
 import json
 import os
 from handlers.groq_handler import GroqHandler as groq
@@ -7,14 +9,12 @@ groq_handler = groq(os.getenv("GROQ_API_KEY", "").split(","))
 
 
 def generate_promql_query(user_query_map):
-
-    
     prompt = f"""
         Context:You are generating PromQL queries to retrieve system and application metrics from Prometheus.
 
         Objective:Create accurate, optimized PromQL queries strictly using the provided input. Prioritize custom metrics and apply only the given labels.
 
-        Style:lear, minimal, and Prometheus-friendly.
+        Style:Clear, minimal, and Prometheus-friendly.
 
         Tone:Professional and concise.
 
@@ -69,7 +69,7 @@ def generate_promql_query(user_query_map):
         result = result.strip("`").strip()
     if result.lower().startswith("json"):
         result = result[4:].strip()
-    # Attempt to parse the JSON response
+    
     try:
         result = json.loads(result)
     except json.JSONDecodeError:
@@ -84,142 +84,174 @@ def generate_promql_query(user_query_map):
 def generate_grafana_dashboard(query_responses):
     """
     Generate a Grafana 9.x dashboard JSON supporting both Prometheus and PostgreSQL datasources
+    
+    FIXED: 
+    - No duplicate panels
+    - Only creates panels for provided queries
+    - No hallucinated PostgreSQL panels
     """
+    
+    # Extract unique datasource types
+    datasource_types = list(set([
+        qr.get('mandatory_datasource_uuid', '').split('-')[0] 
+        for qr in query_responses.get('result', [])
+    ]))
+    
     prompt = f"""
-    Create Grafana 9.x dashboard JSON that supports both Prometheus and PostgreSQL datasources.
-    Use this structure for mixed datasource dashboards:
-
-    Input configuration:
+    Create a Grafana 9.x dashboard JSON with EXACTLY {len(query_responses.get('result', []))} panels.
+    
+    CRITICAL RULES:
+    1. Create EXACTLY ONE panel per query in the input - NO MORE, NO LESS
+    2. DO NOT create panels for datasources not in the input
+    3. DO NOT duplicate panels
+    4. DO NOT add PostgreSQL panels unless explicitly provided in input
+    
+    Input configuration (CREATE ONE PANEL PER ITEM):
     {json.dumps(query_responses, indent=2)}
-
-    Base template:
+    
+    Dashboard Structure:
     {{
         "title": "Generated Dashboard",
-        "uid": "auto-dash-{hash(json.dumps(query_responses))}",
+        "uid": "auto-dash-{hash(json.dumps(query_responses)) % 100000}",
+        "schemaVersion": 36,
         "panels": [
+            // EXACTLY {len(query_responses.get('result', []))} PANELS HERE
+            // One panel per query in input
+        ]
+    }}
+    
+    Panel Template for Prometheus:
+    {{
+        "type": "timeseries",  // or "gauge", "stat" based on query type
+        "title": "Panel Title from userquery",
+        "gridPos": {{"x": 0, "y": 0, "w": 12, "h": 8}},
+        "datasource": {{
+            "type": "prometheus",
+            "uid": "VALUE_FROM_mandatory_datasource_uuid"
+        }},
+        "targets": [
             {{
-                "type": "$VIS_TYPE",
-                "title": "Panel Title",
-                "datasource": {{
-                    "type": "$DATASOURCE_TYPE",
-                    "uid": "$DATASOURCE_UID"
-                }},
-                "targets": [
-                    {{
-                        "expr": "$QUERY",          // PromQL
-                        "rawSql": "$QUERY",        // PostgreSQL
-                        "refId": "A",
-                        "format": "$RESULT_FORMAT",
-                        "legendFormat": "{{{{label}}}}"  // For time series
-                    }}
-                ],
-                "options": {{/* Visualization-specific options */}},
-                "gridPos": {{ "x": 0, "y": 0, "w": 12, "h": 8 }}
+                "expr": "VALUE_FROM_query_field",
+                "refId": "A",
+                "legendFormat": "{{{{instance}}}}"
             }}
         ],
-        "schemaVersion": 36
+        "options": {{
+            "legend": {{"displayMode": "list"}},
+            "tooltip": {{"mode": "single"}}
+        }}
     }}
-
-    Visualization Rules:
-
-    1. Prometheus Panels:
-    - Timeseries: Metrics with timestamped values
-    - Piechart: Aggregated categorical distributions
-    - Gauge/Bargauge: Single values/comparisons
-    - Stat: Simple numeric displays
-    - Format: "time_series" for metrics, "table" for aggregations
-
-    2. PostgreSQL Panels:
-    - Table: Raw SQL results
-    - Timeseries: Time-based queries (must have time column)
-    - Stat: Single value results
-    - Piechart: Category distributions
-    - Format: "table" for most queries, "time_series" if time column exists
-
-    3. Panel Type Mapping:
-    | Query Type        | Suggested Panel   | Format       |
-    |-------------------|-------------------|--------------|
-    | Prometheus Range  | timeseries        | time_series  |
-    | Prometheus Aggr.  | piechart/stat     | table        |
-    | SQL SELECT        | table             | table        |
-    | SQL Aggregation   | stat/piechart     | table        |
-    | SQL Time Series   | timeseries        | time_series  |
-
-    4. Special Handling:
-    - For PostgreSQL timeseries:
-      * Query MUST return a time column named 'time'
-      * Include "convertToDateType": true in fieldConfig
-    - Mix datasources in same dashboard
-    - Maintain consistent grid layout
-
-    5. Examples:
-    - Prometheus CPU Usage:
-      {{
-        "type": "timeseries",
-        "datasource": {{"type":"prometheus","uid":"DS_UID"}},
-        "targets": [{{
-            "expr": "rate(node_cpu_seconds_total[5m])",
-            "format": "time_series"
-        }}]
-      }}
-
-    - PostgreSQL Sales Report:
-      {{
-        "type": "table",
-        "datasource": {{"type":"postgres","uid":"DS_UID"}},
-        "targets": [{{
-            "rawSql": "SELECT product, SUM(sales) FROM orders GROUP BY product",
-            "format": "table"
-        }}]
-      }}
-
-    - Mixed Dashboard Layout:
-      "panels": [
-        {{/* Prometheus panel */ "gridPos": {{"x":0,"y":0,"w":12,"h":8}} }},
-        {{/* Postgres panel */   "gridPos": {{"x":0,"y":8,"w":12,"h":8}} }}
-      ]
-
-    Output ONLY valid JSON. No markdown or explanations.
+    
+    Panel Template for PostgreSQL:
+    {{
+        "type": "table",  // or "timeseries" if time-based
+        "title": "Panel Title from userquery",
+        "gridPos": {{"x": 0, "y": 0, "w": 12, "h": 8}},
+        "datasource": {{
+            "type": "postgres",
+            "uid": "VALUE_FROM_mandatory_datasource_uuid"
+        }},
+        "targets": [
+            {{
+                "rawSql": "VALUE_FROM_query_field",
+                "refId": "A",
+                "format": "table"
+            }}
+        ]
+    }}
+    
+    Panel Type Selection:
+    - For rate(), increase(), delta() → "timeseries"
+    - For sum(), count(), avg() without time → "stat"
+    - For topk(), bottomk() → "bargauge"
+    - For SQL SELECT → "table"
+    - For SQL with time column → "timeseries"
+    
+    Grid Layout Rules:
+    - First panel: {{"x": 0, "y": 0, "w": 12, "h": 8}}
+    - Second panel: {{"x": 12, "y": 0, "w": 12, "h": 8}}
+    - Third panel: {{"x": 0, "y": 8, "w": 12, "h": 8}}
+    - Pattern: Alternate x between 0 and 12, increment y every 2 panels
+    
+    FINAL CHECK BEFORE RETURNING:
+    - Count panels array length
+    - Verify it equals {len(query_responses.get('result', []))}
+    - Remove any extra panels
+    - Do NOT add placeholder panels
+    
+    Output ONLY valid JSON. No markdown, no explanations.
     """
 
     result = groq_handler.groqrequest(prompt)
 
+    # Clean response
     if result.startswith("```"):
         result = result.strip("`").strip()
     if result.lower().startswith("json"):
         result = result[4:].strip()
 
-
     try:
-        result = json.loads(result)
-    except json.JSONDecodeError as e:
-        return {"error": f"Failed to parse JSON: {str(e)}"}
-    
-    print("========>>> result", result)
-
-    try:
-        for panel in result.get("panels", []):
-            # Ensure consistent datasource format
-            if "datasource" in panel:
-                if isinstance(panel["datasource"], str):
-                    panel["datasource"] = {
-                        "type": "prometheus" if "prometheus" in panel["datasource"].lower() else "postgres",
-                        "uid": panel["datasource"]
-                    }
+        dashboard = json.loads(result)
+        
+        # POST-PROCESSING: VALIDATE AND FIX
+        
+        input_queries = query_responses.get('result', [])
+        panels = dashboard.get('panels', [])
+        
+        # Remove duplicate panels (same title and datasource)
+        seen = set()
+        unique_panels = []
+        for panel in panels:
+            key = (panel.get('title', ''), 
+                   panel.get('datasource', {}).get('uid', ''))
+            if key not in seen:
+                seen.add(key)
+                unique_panels.append(panel)
+        
+        # Limit to number of input queries
+        if len(unique_panels) > len(input_queries):
+            print(f"WARNING: LLM generated {len(unique_panels)} panels, expected {len(input_queries)}. Trimming extras.")
+            unique_panels = unique_panels[:len(input_queries)]
+        
+        # Fix grid positions
+        for idx, panel in enumerate(unique_panels):
+            row = idx // 2
+            col = idx % 2
+            panel['gridPos'] = {
+                "x": col * 12,
+                "y": row * 8,
+                "w": 12,
+                "h": 8
+            }
             
-            # Add PostgreSQL time conversion
-            if panel["datasource"]["type"] == "postgres" and panel["type"] == "timeseries":
-                panel.setdefault("fieldConfig", {})
-                panel["fieldConfig"]["defaults"] = {
-                    "unit": "dateTimeAsIso",
-                    "custom": {
-                        "convertToDateType": True
-                    }
+            # Ensure datasource format is correct
+            if 'datasource' in panel and isinstance(panel['datasource'], str):
+                # Fix string datasource to object
+                ds_uid = panel['datasource']
+                panel['datasource'] = {
+                    "type": "prometheus" if "prometheus" in ds_uid.lower() else "postgres",
+                    "uid": ds_uid
                 }
-
-        return result
+        
+        dashboard['panels'] = unique_panels
+        
+        # Add metadata
+        dashboard['editable'] = True
+        dashboard['fiscalYearStartMonth'] = 0
+        dashboard['graphTooltip'] = 0
+        dashboard['links'] = []
+        dashboard['liveNow'] = False
+        dashboard['timezone'] = "browser"
+        
+        print(f"✅ Dashboard generated with {len(unique_panels)} panels")
+        return dashboard
+        
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON parsing error: {e}")
+        return {"error": f"Failed to parse JSON: {str(e)}"}
     except Exception as e:
-        return {"error": f"Dashboard post-processing failed: {str(e)}"}
+        print(f"❌ Dashboard post-processing failed: {e}")
+        return {"error": f"Dashboard processing failed: {str(e)}"}
 
 
 def get_query_metrics_labels(queries):
@@ -280,13 +312,12 @@ def get_query_metrics_labels(queries):
         result = result.strip("`").strip()
         if result.lower().startswith("json"):
             result = result[4:].strip()
-    # Attempt to parse the JSON response
+    
     try:
         result = json.loads(result)
     except json.JSONDecodeError:
         return {"error": "Failed to parse JSON response from LLM"}
     
-    # Validation
     if not result.get('data'):
         return {"error": "Invalid response format"}
         
@@ -322,7 +353,7 @@ def generate_sql_query(query, datasource, metadata_context):
                 {{
                     "mandatory_datasource_uuid": "value",
                     "userquery": "value",
-                    "query": "Generated PromQL query"
+                    "query": "Generated SQL query"
                 }}
             ]
         }}

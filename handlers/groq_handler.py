@@ -1,51 +1,102 @@
+# handlers/groq_handler.py
+# Handler for Groq LLM API operations
+
 import os
 import requests
-import streamlit as st
-import json
+from typing import List, Optional
+
 
 class GroqHandler:
-    def __init__(self, api_key=None):
+    """Handler for Groq LLM API with multi-key failover"""
+    
+    def __init__(self, api_key: Optional[str] = None):
+        """
+        Initialize Groq handler
+        
+        Args:
+            api_key: Single API key or comma-separated multiple keys
+        """
+        if api_key:
+            self.apikeys = api_key.split(",") if isinstance(api_key, str) else api_key
+        else:
+            env_key = os.getenv("GROQ_API_KEY", "")
+            self.apikeys = env_key.split(",") if env_key else []
+        
+        # Strip whitespace from keys
+        self.apikeys = [k.strip() for k in self.apikeys if k.strip()]
 
-        self.apikeys = api_key if api_key else os.getenv("GROQ_API_KEY", "").split(",")
-
-    def groqrequest(self, prompt):
-        """Send a request to the Groq API using multiple API keys until successful or all fail."""
+    def groqrequest(self, prompt: str, model: str = "llama-3.3-70b-versatile") -> str:
+        """
+        Send request to Groq API with automatic failover
+        
+        Args:
+            prompt: The prompt to send
+            model: Model to use (default: llama-3.3-70b-versatile)
+            
+        Returns:
+            Model response text or error dict
+        """
         url = "https://api.groq.com/openai/v1/chat/completions"
         data = {
-            "model": "llama-3.3-70b-versatile",
+            "model": model,
             "messages": [
                 {
                     "role": "user",
                     "content": prompt
                 }
-            ]
+            ],
+            "temperature": 0.1,  # Low temperature for more consistent outputs
+            "max_tokens": 4096
         }
 
-        for key in self.apikeys:
+        # Try each API key
+        for idx, key in enumerate(self.apikeys):
             headers = {
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {key.strip()}"
+                "Authorization": f"Bearer {key}"
             }
-
             
-            response = requests.post(url, json=data, headers=headers)
-            if response.status_code == 200:
-                result = response.json()
-                st.write(result)
-                raw_content = result["choices"][0]["message"]["content"]
-                return raw_content
-            elif response.status_code == 401:
-                st.warning(f"API key failed (unauthorized): {key.strip()}")
-                continue  # Try next key
-            elif response.status_code == 429:
-                st.warning(f"Rate limit reached for API key: {key.strip()}")
-                continue  # Try next key
-            elif response.status_code == 500:
-                st.warning(f"Server error for API key: {key.strip()}")
-                continue  # Try next key
-            elif response.status_code == 503:
-                st.warning(f"Service unavailable for API key: {key.strip()}")
-                continue  # Try next key
-            else:
-                st.error(f"Error: {response.status_code} - {response.text}")
-                return {"error": "API request failed"}
+            try:
+                response = requests.post(url, json=data, headers=headers, timeout=60)
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    raw_content = result["choices"][0]["message"]["content"]
+                    return raw_content
+                    
+                elif response.status_code == 401:
+                    print(f"API key {idx + 1} unauthorized")
+                    continue
+                    
+                elif response.status_code == 429:
+                    print(f"API key {idx + 1} rate limited")
+                    continue
+                    
+                elif response.status_code >= 500:
+                    print(f"Server error with API key {idx + 1}: {response.status_code}")
+                    continue
+                    
+                else:
+                    print(f"Error {response.status_code}: {response.text}")
+                    continue
+                    
+            except requests.exceptions.Timeout:
+                print(f"Request timeout with API key {idx + 1}")
+                continue
+            except Exception as e:
+                print(f"Exception with API key {idx + 1}: {str(e)}")
+                continue
+        
+        # All keys failed
+        return '{"error": "All API keys failed or rate limited"}'
+    
+    def test_connection(self) -> bool:
+        """
+        Test Groq API connection
+        
+        Returns:
+            True if at least one API key works, False otherwise
+        """
+        test_prompt = "Say 'OK' if you can read this."
+        response = self.groqrequest(test_prompt)
+        return not response.startswith('{"error":')
