@@ -1,25 +1,291 @@
+# docker-compose.yml - Complete VizGenie Stack with Streamlit UI
+
 version: '3.8'
 
 services:
+  # ==========================================================================
+  # DEMO APPLICATION (FastAPI)
+  # ==========================================================================
+  
+  fastapi-app:
+    build: ./demo/app
+    container_name: fastapi-app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:admin@postgres:5432/app_db
+      - LOG_LEVEL=INFO
+    depends_on:
+      - postgres
+    networks:
+      - monitoring
+    labels:
+      logging: "promtail"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
+  # ==========================================================================
+  # LOAD GENERATOR
+  # ==========================================================================
+  
+  load-generator:
+    build: ./demo/load-generator
+    container_name: load-generator
+    restart: unless-stopped
+    environment:
+      - TARGET_URL=http://fastapi-app:8000
+      - REQUESTS_PER_SECOND=10
+      - ERROR_SCENARIO=all
+    depends_on:
+      - fastapi-app
+    networks:
+      - monitoring
+
+  # ==========================================================================
+  # VIZGENIE PLATFORM (Background Monitor)
+  # ==========================================================================
+  
+  # vizgenie:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: vizgenie
+  #   restart: unless-stopped
+  #   environment:
+  #     # Service Config
+  #     - SERVICE_NAME=vizgenie
+  #     - ENVIRONMENT=production
+      
+  #     # Grafana
+  #     - GRAFANA_URL=http://grafana:3000
+  #     - GRAFANA_API_KEY=${GRAFANA_API_KEY:-eyJrIjoiVGVzdEtleTEyMzQ1Njc4OTAiLCJuIjoidml6Z2VuaWUiLCJpZCI6MX0=}
+      
+  #     # Prometheus
+  #     - PROMETHEUS_URL=http://prometheus:9090
+      
+  #     # Loki
+  #     - LOKI_URL=http://loki:3100
+      
+  #     # PostgreSQL
+  #     - POSTGRES_URL=postgresql://postgres:admin@postgres:5432/app_db
+      
+  #     # ChromaDB
+  #     - CHROMA_DB_PATH=/app/chroma_db
+      
+  #     # Groq LLM
+  #     - GROQ_API_KEY=${GROQ_API_KEY}
+  #     - LLM_MODEL=llama-3.3-70b-versatile
+  #     - LLM_TEMPERATURE=0.1
+      
+  #     # Hybrid Mode Settings
+  #     - DEFAULT_MODE=auto
+  #     - CLASSIFIER_CONFIDENCE_THRESHOLD=0.7
+  #     - GUARDRAILS_ENABLED=true
+      
+  #     # Cost & Performance Limits
+  #     - AGENTIC_MAX_COST_PER_QUERY=0.10
+  #     - AGENTIC_TIMEOUT_SECONDS=60
+  #     - AGENTIC_MAX_ITERATIONS=3
+      
+  #     # Monitoring Settings
+  #     - LOG_MONITORING_ENABLED=false
+  #     - LOG_CHECK_INTERVAL=30
+  #     - PATTERN_LEARNING_ENABLED=false
+  #     - PATTERN_LEARNING_INTERVAL=7200
+  #     - RCA_COOLDOWN_MINUTES=5
+      
+  #     # Logging
+  #     - LOG_LEVEL=INFO
+  #     - LOG_FILE_ENABLED=true
+  #   volumes:
+  #     - ./chroma_db:/app/chroma_db
+  #     - ./logs:/app/logs
+  #     - ./patterns:/app/patterns
+  #     - ./metadata:/app/metadata
+  #     - ./templates:/app/templates
+  #   depends_on:
+  #     - prometheus
+  #     - loki
+  #     - grafana
+  #     - postgres
+  #   networks:
+  #     - monitoring
+  #   command: python main.py monitor
+  #   healthcheck:
+  #     test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+  #     interval: 60s
+  #     timeout: 10s
+  #     retries: 3
+
+  # # ==========================================================================
+  # # VIZGENIE STREAMLIT UI
+  # # ==========================================================================
+  
+  # vizgenie-ui:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.streamlit
+  #   container_name: vizgenie-ui
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8501:8501"
+  #   environment:
+  #     # Service Config
+  #     - SERVICE_NAME=vizgenie-ui
+  #     - ENVIRONMENT=production
+      
+  #     # Grafana
+  #     - GRAFANA_URL=http://grafana:3000
+  #     - GRAFANA_API_KEY=${GRAFANA_API_KEY:-eyJrIjoiVGVzdEtleTEyMzQ1Njc4OTAiLCJuIjoidml6Z2VuaWUiLCJpZCI6MX0=}
+      
+  #     # Prometheus
+  #     - PROMETHEUS_URL=http://prometheus:9090
+      
+  #     # Loki
+  #     - LOKI_URL=http://loki:3100
+      
+  #     # PostgreSQL
+  #     - POSTGRES_URL=postgresql://postgres:admin@postgres:5432/app_db
+      
+  #     # ChromaDB
+  #     - CHROMA_DB_PATH=/app/chroma_db
+      
+  #     # Groq LLM
+  #     - GROQ_API_KEY=${GROQ_API_KEY}
+  #     - LLM_MODEL=llama-3.3-70b-versatile
+  #     - LLM_TEMPERATURE=0.1
+      
+  #     # Hybrid Mode Settings
+  #     - DEFAULT_MODE=auto
+  #     - CLASSIFIER_CONFIDENCE_THRESHOLD=0.7
+  #     - GUARDRAILS_ENABLED=true
+      
+  #     # Cost & Performance Limits
+  #     - AGENTIC_MAX_COST_PER_QUERY=0.10
+  #     - AGENTIC_TIMEOUT_SECONDS=60
+  #     - AGENTIC_MAX_ITERATIONS=3
+      
+  #     # Logging
+  #     - LOG_LEVEL=INFO
+  #     - LOG_FILE_ENABLED=true
+  #   volumes:
+  #     - ./chroma_db:/app/chroma_db
+  #     - ./logs:/app/logs
+  #     - ./patterns:/app/patterns
+  #     - ./metadata:/app/metadata
+  #     - ./templates:/app/templates
+  #   depends_on:
+  #     - prometheus
+  #     - loki
+  #     - grafana
+  #     - postgres
+  #   networks:
+  #     - monitoring
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+
+  # ==========================================================================
+  # INFRASTRUCTURE - DATABASE
+  # ==========================================================================
+  
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: app_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================================================
+  # INFRASTRUCTURE - METRICS (Prometheus)
+  # ==========================================================================
+  
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
     restart: unless-stopped
     volumes:
-      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
+      - ./demo/config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--web.enable-lifecycle'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+      - "--storage.tsdb.retention.time=30d"
     ports:
       - "9090:9090"
     networks:
       - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
+  # ==========================================================================
+  # INFRASTRUCTURE - LOGS (Loki)
+  # ==========================================================================
+  
+  loki:
+    image: grafana/loki:2.9.4
+    container_name: loki
+    restart: unless-stopped
+    volumes:
+      - ./demo/config/loki-config.yml:/etc/loki/loki-config.yml
+      - loki-data:/loki
+    command: -config.file=/etc/loki/loki-config.yml
+    ports:
+      - "3100:3100"
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3100/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==========================================================================
+  # INFRASTRUCTURE - LOG COLLECTOR (Promtail)
+  # ==========================================================================
+  
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    restart: unless-stopped
+    volumes:
+      - ./demo/config/promtail-config.yml:/etc/promtail/promtail-config.yml
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: -config.file=/etc/promtail/promtail-config.yml
+    depends_on:
+      - loki
+    networks:
+      - monitoring
+
+  # ==========================================================================
+  # INFRASTRUCTURE - VISUALIZATION (Grafana)
+  # ==========================================================================
+  
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
@@ -28,130 +294,42 @@ services:
       - "3000:3000"
     volumes:
       - grafana-data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./demo/grafana/provisioning:/etc/grafana/provisioning
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_SECURITY_ALLOW_EMBEDDING=true
     networks:
       - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.47.1
-    container_name: cadvisor
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:rw
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-    command:
-      - '--storage_duration=15s'
-    networks:
-      - monitoring
-    labels:
-      org.label-schema.group: "monitoring"
-      name: "cadvisor"
-
-  node-exporter:
-    image: prom/node-exporter:latest
-    container_name: node-exporter
-    restart: unless-stopped
-    ports:
-      - "9100:9100"
-    networks:
-      - monitoring
-
-  redis-exporter:
-    image: oliver006/redis_exporter:latest
-    container_name: redis-exporter
-    restart: unless-stopped
-    ports:
-      - "9121:9121"
-    environment:
-      - REDIS_ADDR=redis:6379
-    depends_on:
-      - redis
-    networks:
-      - monitoring
-
-  redis:
-    image: redis:latest
-    container_name: redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    networks:
-      - monitoring
-
-  redis-traffic:
-    image: redis:latest
-    container_name: redis-traffic
-    command: 
-      - sh
-      - -c
-      - "while true; do redis-cli -h redis SET foo $$(date +%s) && sleep 0.1; done"
-    networks:
-      - monitoring
-    depends_on:
-      - redis
-
-  nginx-1:
-    image: nginx:latest
-    container_name: nginx-1
-    ports:
-      - "80:80"
-    volumes:
-      - nginx-data-1:/usr/share/nginx/html
-    networks:
-      - monitoring
-
-  nginx-2:
-    image: nginx:latest
-    container_name: nginx-2
-    ports:
-      - "81:80"
-    volumes:
-      - nginx-data-2:/usr/share/nginx/html
-    networks:
-      - monitoring
-
-  postgres:
-    image: postgres:15
-    container_name: postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: sales_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: admin
-    volumes:
-      - postgres-datasource:/var/lib/postgresql/data
-    ports:
-      - "5433:5432"
-    networks:
-      - monitoring
-
-  postgres-exporter:
-    image: prometheuscommunity/postgres-exporter:latest
-    container_name: postgres-exporter
-    restart: unless-stopped
-    environment:
-      DATA_SOURCE_NAME: "postgresql://postgres:admin@postgres:5432/sales_db?sslmode=disable"
-    ports:
-      - "9187:9187"
-    depends_on:
-      - postgres
-    networks:
-      - monitoring
+# =============================================================================
+# NETWORKS
+# =============================================================================
 
 networks:
   monitoring:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
+
+# =============================================================================
+# VOLUMES
+# =============================================================================
 
 volumes:
-  prometheus_data: {}
-  grafana-data: {}
-  nginx-data-1: {}
-  nginx-data-2: {}
-  postgres-datasource: {}
+  prometheus-data:
+    driver: local
+  loki-data:
+    driver: local
+  grafana-data:
+    driver: local
+  postgres-data:
+    driver: local
