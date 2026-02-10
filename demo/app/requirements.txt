@@ -2,5 +2,5 @@ fastapi==0.115.5
 uvicorn[standard]==0.32.1
 psycopg2-binary==2.9.10
 prometheus-client==0.21.0
-requests==2.32.3
+requests==2.32.4
 psutil==6.1.0
