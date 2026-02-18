@@ -1,287 +1,221 @@
-<div align="center">
-  <img src="https://raw.githubusercontent.com/vsion-x/vizgenie/main/assets/vizgenielogo.svg" alt="VizGenie Logo" width="300"/>
-  
-  [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-  [![Python 3.8+](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/)
-  [![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
-  
-  <p>
-    <a href="https://www.loom.com/share/d4ebd415de14413faf23a928a728ccf9">
-      <img src="https://img.shields.io/badge/🎥-Watch_Demo-FF4B4B?style=for-the-badge" alt="Watch Demo">
-    </a>
-    <a href="https://console.groq.com/">
-      <img src="https://img.shields.io/badge/🔑-Get_API_Key-black?style=for-the-badge" alt="Get API Key">
-    </a>
-  </p>
-</div>
+# 🎩 VizGenie
 
-# VizGenie: Visualize Your Data Your Way
+> **Transform natural language into Grafana dashboards with AI-powered observability**
 
-VizGenie is an intelligent tool that transforms natural language queries into Grafana visualizations. It leverages language models to generate queries (PromQL and SQL), build dashboards, and deploy them automatically to your Grafana instance.
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-blue.svg)](https://python.org)
+[![LangGraph](https://img.shields.io/badge/LangGraph-0.1.19-green.svg)](https://github.com/langchain-ai/langgraph)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.35-red.svg)](https://streamlit.io)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## ✨ Key Features
+---
 
-<div align="center">
-  <table>
-    <tr>
-      <td align="center">
-        <div style="font-size: 48px;">💬</div>
-        <h3>Natural Language to Visualization</h3>
-        <p>Describe metrics in plain English</p>
-        <img src="https://img.shields.io/badge/✅-Feature_Enabled-success">
-      </td>
-      <td align="center">
-        <div style="font-size: 48px;">📊</div>
-        <h3>Grafana Integration</h3>
-        <p>Auto-create and deploy dashboards</p>
-        <img src="https://img.shields.io/badge/✅-Feature_Enabled-success">
-      </td>
-    </tr>
-    <tr>
-      <td align="center">
-        <div style="font-size: 48px;">🔌</div>
-        <h3>Multi-Data Source</h3>
-        <p>Works with Prometheus and PostgreSQL</p>
-        <img src="https://img.shields.io/badge/✅-Feature_Enabled-success">
-      </td>
-      <td align="center">
-        <div style="font-size: 48px;">🤖</div>
-        <h3>AI-Powered Insights</h3>
-        <p>Context-aware metric recommendations</p>
-        <img src="https://img.shields.io/badge/✅-Feature_Enabled-success">
-      </td>
-    </tr>
-  </table>
-</div>
+## ✨ Features
 
-## Architecture Diagram
+| Feature | Description |
+|---|---|
+| 🗣️ **Natural Language Queries** | Describe metrics in plain English |
+| 📊 **Auto Dashboard Generation** | Grafana dashboards deployed in seconds |
+| 🔍 **AI-Powered RCA** | Autonomous root cause analysis in < 15s |
+| 🧠 **Log Pattern Learning** | Self-learns regex patterns from your logs |
+| 📜 **Log Segregation** | Background categorisation with Loki |
+| ⏱️ **MTTD / MTTR Tracking** | Built-in SRE observability metrics |
+| 🔌 **Multi-Datasource** | Prometheus + PostgreSQL + Loki |
 
-<div align="center">
-  <img src="https://raw.githubusercontent.com/vsion-x/vizgenie/main/assets/architecture.png" alt="VizGenie Architecture" width="600">
-</div>
+---
 
-## 🎥 Demo
+## 🏗️ Architecture
+```
+┌────────────────────────────────────────────────────────┐
+│                    Streamlit UI                        │
+│   Connections · Query Interface · Job Control · RCA   │
+└───────────────────────┬────────────────────────────────┘
+                        │
+┌───────────────────────▼────────────────────────────────┐
+│              LangGraph Agent System                    │
+│  Supervisor → Metrics | SQL | Investigator | Learning │
+│                      RCA Agent                        │
+└───────────────────────┬────────────────────────────────┘
+                        │
+┌───────────────────────▼────────────────────────────────┐
+│              Async Background Jobs                     │
+│       Unified Monitor (Log Segregation + RCA)         │
+└───────────────────────┬────────────────────────────────┘
+                        │
+┌───────────────────────▼────────────────────────────────┐
+│                   Tools Layer                          │
+│  Prometheus · PostgreSQL · Loki · VectorDB · Grafana  │
+└────────────────────────────────────────────────────────┘
+```
 
-<div align="center">
-  <a href="https://www.loom.com/share/d4ebd415de14413faf23a928a728ccf9">
-    <img src="https://cdn.loom.com/sessions/thumbnails/d4ebd415de14413faf23a928a728ccf9-101b13f5c63868b2-full-play.gif" alt="VizGenie Demo" style="max-width: 90%; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.1);">
-  </a>
-  <p>
-    <a href="https://www.loom.com/share/d4ebd415de14413faf23a928a728ccf9">
-      <img src="https://img.shields.io/badge/▶-Watch_Full_Demo-FF4B4B?style=for-the-badge" alt="Watch Full Demo">
-    </a>
-  </p>
-</div>
+---
 
-## 🚀 Getting Started
+## 🚀 Quick Start
 
-<div align="center">
-  <a href="#-prerequisites">
-    <img src="https://img.shields.io/badge/1.-Prerequisites-4CAF50?style=for-the-badge&logo=check-circle&logoColor=white" alt="Prerequisites">
-  </a>
-  <span>→</span>
-  <a href="#%EF%B8%8F-configuration">
-    <img src="https://img.shields.io/badge/2.-Configuration-2196F3?style=for-the-badge&logo=cog&logoColor=white" alt="Configuration">
-  </a>
-  <span>→</span>
-  <a href="#-deployment">
-    <img src="https://img.shields.io/badge/3.-Deployment-9C27B0?style=for-the-badge&logo=rocket&logoColor=white" alt="Deployment">
-  </a>
-</div>
+### Docker (Recommended)
+```bash
+# 1. Clone
+git clone https://github.com/your-org/vizgenie.git
+cd vizgenie
 
-### 📋 Prerequisites
+# 2. Configure
+cp .env.example .env
+# Edit .env → add your GROQ_API_KEY
 
-<div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 10px 0;">
-  <table>
-    <tr>
-      <td><img src="https://img.icons8.com/color/24/000000/key.png"/></td>
-      <td><strong>Groq API Key</strong></td>
-      <td><a href="https://console.groq.com/">Get it here</a></td>
-    </tr>
-    <tr>
-      <td><img src="https://img.icons8.com/color/24/000000/grafana.png"/></td>
-      <td><strong>Grafana API Key</strong></td>
-      <td>Create with <code>dashboards:write</code> permissions</td>
-    </tr>
-    <tr>
-      <td><img src="https://img.icons8.com/color/24/000000/docker.png"/></td>
-      <td><strong>Docker</strong> (Optional)</td>
-      <td>Recommended for containerized deployment</td>
-    </tr>
-    <tr>
-      <td><img src="https://img.icons8.com/color/24/000000/postgreesql.png"/></td>
-      <td><strong>PostgreSQL</strong></td>
-      <td>Running instance or use provided Docker setup</td>
-    </tr>
-  </table>
-</div>
+# 3. Start full stack
+docker compose up -d
 
-### ⚙️ Configuration
+# 4. Open
+open http://localhost:8501
+```
 
-<div style="background: #f8f9ff; padding: 20px; border-radius: 8px; border-left: 4px solid #2196F3; margin: 15px 0;">
-  <h3>1. Environment Setup</h3>
-  <p>Create a <code>.env</code> file in the root directory with your GROQ API key:</p>
-  
-  ```env
-  GROQ_API_KEY=your_groq_api_key_here
-  ```
-  
-  <div style="background: #e3f2fd; padding: 10px; border-radius: 4px; margin: 10px 0;">
-    <strong>ℹ️ Note:</strong> This is the only configuration needed in the <code>.env</code> file. All other configurations are managed through the Streamlit UI.
-  </div>
-</div>
+### Local Python
+```bash
+# 1. Python 3.12 required
+python --version   # Python 3.12.x
 
-<div style="background: #f8f9ff; padding: 20px; border-radius: 8px; border-left: 4px solid #4CAF50; margin: 15px 0;">
-  <h3>2. Streamlit UI Configuration</h3>
-  <p>Configure the following settings directly in the Streamlit UI when prompted:</p>
-  
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin: 15px 0;">
-    <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-      <h4>🔌 Grafana</h4>
-      <ul style="margin: 10px 0 0 0; padding-left: 20px;">
-        <li>URL: <code>http://localhost:3000</code></li>
-        <li>API Key with <code>dashboards:write</code> permissions</li>
-      </ul>
-    </div>
-    
-    <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-      <h4>📊 Prometheus</h4>
-      <ul style="margin: 10px 0 0 0; padding-left: 20px;">
-        <li>URL: <code>http://localhost:9090</code></li>
-      </ul>
-    </div>
-    
-    <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-      <h4>🐘 PostgreSQL</h4>
-      <ul style="margin: 10px 0 0 0; padding-left: 20px;">
-        <li>Connection String: <code>postgresql://postgres:admin@localhost:5433/sales_db</code></li>
-      </ul>
-    </div>
-  </div>
-</div>
+# 2. Install deps
+pip install -r requirements.txt
 
-**Sample Connection Strings:**
-- Grafana: `http://localhost:3000`
-- Prometheus: `http://localhost:9090`
-- PostgreSQL: `postgresql://postgres:admin@localhost:5433/sales_db`
+# 3. Configure
+cp .env.example .env
+# Edit .env → add your GROQ_API_KEY
 
-### 🔍 Sample Database
+# 4. Run
+streamlit run main.py
+```
 
-<div style="background: #f0f7ff; padding: 20px; border-radius: 8px; margin: 20px 0;">
-  <h2>🔍 Sample Database</h2>
-  
-  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 15px 0;">
-    <div>
-      <h3>📂 Included Files</h3>
-      <ul>
-        <li>Database schema and metadata in <code>metadata/</code> directory</li>
-        <li>Sample data in CSV format in the root directory</li>
-      </ul>
-    </div>
-    <div>
-      <h3>🔑 Default PostgreSQL Credentials</h3>
-      <table style="width:100%; border-collapse: collapse;">
-        <tr>
-          <td>Database:</td>
-          <td><code>sales_db</code></td>
-        </tr>
-        <tr>
-          <td>User:</td>
-          <td><code>postgres</code></td>
-        </tr>
-        <tr>
-          <td>Password:</td>
-          <td><code>admin</code></td>
-        </tr>
-        <tr>
-          <td>Port:</td>
-          <td><code>5433</code></td>
-        </tr>
-      </table>
-    </div>
-  </div>
-</div>
+---
 
-### 🚀 Deployment
+## ⚙️ Configuration
 
-### 🐳 Docker Deployment (Recommended)
+### Mandatory Services
 
-<div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 15px 0;">
-  <h3>Prerequisites</h3>
-  <ul>
-    <li>Docker installed on your system</li>
-    <li>Docker Compose installed</li>
-  </ul>
-  
-  <h3>Steps</h3>
-  
-  <div style="background: white; padding: 15px; border-radius: 8px; margin: 10px 0;">
-    <h4>1. Navigate to project directory</h4>
-    <pre style="background: #2d2d2d; color: #f8f8f2; padding: 10px; border-radius: 4px; overflow-x: auto;">
-    cd /path/to/vizgenie</pre>
-  </div>
-  
-  <div style="background: white; padding: 15px; border-radius: 8px; margin: 10px 0;">
-    <h4>2. Start the containers</h4>
-    <pre style="background: #2d2d2d; color: #f8f8f2; padding: 10px; border-radius: 4px; overflow-x: auto;">
-    docker-compose up -d</pre>
-  </div>
-  
-  <div style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin: 15px 0 0 0; display: flex; align-items: center;">
-    <div style="margin-right: 15px;">
-      <img src="https://img.icons8.com/color/48/000000/info.png" width="24" height="24"/>
-    </div>
-    <div>
-      <strong>Access the application:</strong> Once the containers are running, open your browser and navigate to <a href="http://localhost:8501">http://localhost:8501</a>
-    </div>
-  </div>
-</div>
+| Service | Purpose | Get Key |
+|---|---|---|
+| **Groq** | LLM backbone | [console.groq.com](https://console.groq.com) |
+| **Grafana** | Dashboard platform | Self-hosted or [grafana.com](https://grafana.com) |
 
-### 🐍 Local Python Setup
+### Optional Services
 
-<div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 15px 0;">
-  <h3>Prerequisites</h3>
-  <ul>
-    <li>Python 3.8 or higher</li>
-    <li>pip package manager</li>
-  </ul>
-  
-  <h3>Steps</h3>
-  
-  <div style="background: white; padding: 15px; border-radius: 8px; margin: 10px 0;">
-    <h4>1. Install dependencies</h4>
-    <pre style="background: #2d2d2d; color: #f8f8f2; padding: 10px; border-radius: 4px; overflow-x: auto;">
-    pip install -r requirements.txt</pre>
-  </div>
-  
-  <div style="background: white; padding: 15px; border-radius: 8px; margin: 10px 0;">
-    <h4>2. Run the application</h4>
-    <pre style="background: #2d2d2d; color: #f8f8f2; padding: 10px; border-radius: 4px; overflow-x: auto;">
-    streamlit run main.py</pre>
-    <p style="margin: 5px 0 0 0; font-size: 0.9em; color: #666;">or</p>
-    <pre style="background: #2d2d2d; color: #f8f8f2; padding: 10px; border-radius: 4px; overflow-x: auto; margin-top: 5px;">
-    python3 -m streamlit run main.py</pre>
-  </div>
-  
-  <div style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin: 15px 0 0 0; display: flex; align-items: center;">
-    <div style="margin-right: 15px;">
-      <img src="https://img.icons8.com/color/48/000000/info.png" width="24" height="24"/>
-    </div>
-    <div>
-      <strong>Access the application:</strong> The application will automatically open in your default web browser at <a href="http://localhost:8501">http://localhost:8501</a>
-    </div>
-  </div>
-</div>
+| Service | Purpose | Default Port |
+|---|---|---|
+| Prometheus | Metrics | 9090 |
+| Loki | Logs | 3100 |
+| PostgreSQL | Relational data | 5433 |
+
+### Environment Variables
+```bash
+GROQ_API_KEY=gsk_...           # Required
+LOG_LEVEL=INFO                 # Optional
+POSTGRES_USER=postgres         # Optional
+POSTGRES_PASSWORD=admin        # Optional
+POSTGRES_DB=sales_db           # Optional
+GRAFANA_USER=admin             # Optional
+GRAFANA_PASSWORD=admin         # Optional
+```
+
+---
+
+## 📖 Usage
+
+### 1. Connect Services
+Navigate to **Connections** → test Groq + Grafana (mandatory) →
+optionally connect Prometheus, Loki, PostgreSQL.
+
+### 2. Create a Dashboard
+Navigate to **Dashboard** → type a natural language query:
+- *"Show CPU usage over the last hour"*
+- *"Top 10 customers by sales revenue"*
+- *"Why is my FastAPI service slow?"*
+
+### 3. Monitor Automatically
+Navigate to **Job Control** → **Start Monitor** →
+select a Loki datasource → configure thresholds → click **Start**.
+
+The monitor will:
+- Categorise logs every 30 seconds using learned patterns
+- Detect anomalies every 15 seconds
+- Trigger RCA automatically when thresholds are breached
+- Display reports in the **RCA Reports** tab
+
+### 4. Learn New Patterns
+Click **Learn Patterns** on the Dashboard page to trigger the
+learning agent — it fetches 1 000 log samples, extracts regex
+patterns via LLM, validates them, and saves to
+`config/log_patterns.yaml`.
+
+---
+
+## 📁 Project Structure
+```
+vizgenie/
+├── main.py                         # Streamlit entry point
+├── requirements.txt
+├── .env.example
+├── Dockerfile
+├── docker-compose.yml
+│
+├── schemas/
+│   └── state.py                    # LangGraph AgentState
+│
+├── graphs/                         # LangGraph agent graphs
+│   ├── supervisor_graph.py
+│   ├── metrics_graph.py
+│   ├── sql_graph.py
+│   ├── investigator_graph.py
+│   ├── learning_graph.py
+│   └── rca_graph.py
+│
+├── nodes/                          # Graph node functions
+│   ├── metric_nodes.py
+│   ├── sql_nodes.py
+│   └── dashboard_node.py
+│
+├── tools/                          # Datasource tools
+│   ├── base_tool.py
+│   ├── vectordb_tools.py
+│   ├── prometheus_tools.py
+│   ├── postgres_tools.py
+│   ├── loki_tools.py
+│   ├── learning_tools.py
+│   ├── dashboard_tools.py
+│   └── __init__.py
+│
+├── bg_jobs/
+│   └── unified_monitor.py          # Async log segregation + RCA
+│
+├── llm/
+│   ├── prompts.py
+│   ├── retry_handler.py
+│   └── groq_client.py
+│
+├── ui/
+│   ├── job_control.py
+│   └── query_interface.py
+│
+├── utils/
+│   ├── logger.py
+│   ├── validators.py
+│   └── streamlit_notifier.py
+│
+├── config/
+│   ├── datasources.yaml
+│   ├── log_patterns.yaml
+│   └── thresholds.yaml
+│
+├── metadata/
+│   └── metadata.yaml
+│
+└── docker/
+    ├── grafana/provisioning/
+    ├── prometheus/prometheus.yml
+    ├── loki/loki-config.yaml
+    ├── promtail/promtail-config.yaml
+    └── postgres/init.sql
+```
+
+---
 
 ## 📜 License
 
-This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for more information.
-
-<div align="center" style="margin-top: 50px;">
-  <p>Made with ❤️ by VizGenie Team</p>
-  <p>
-    <a href="#">Documentation</a> •
-    <a href="#">Contribute</a> •
-    <a href="#">Report Issues</a>
-  </p>
-</div>
+MIT — © VizGenie Team

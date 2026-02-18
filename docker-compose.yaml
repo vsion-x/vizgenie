@@ -1,25 +1,182 @@
+# docker-compose.yml - Complete VizGenie Stack with Streamlit UI
+
 version: '3.8'
 
 services:
+  # ==========================================================================
+  # DEMO APPLICATION (FastAPI)
+  # ==========================================================================
+  
+  fastapi-app:
+    build: ./demo/app
+    container_name: fastapi-app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:admin@postgres:5432/app_db
+      - LOG_LEVEL=INFO
+    depends_on:
+      - postgres
+    networks:
+      - monitoring
+    labels:
+      logging: "promtail"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
+  # ==========================================================================
+  # LOAD GENERATOR
+  # ==========================================================================
+  
+  load-generator:
+    build: ./demo/load-generator
+    container_name: load-generator
+    restart: unless-stopped
+    environment:
+      - TARGET_URL=http://fastapi-app:8000
+      - REQUESTS_PER_SECOND=10
+      - ERROR_SCENARIO=all
+    depends_on:
+      - fastapi-app
+    networks:
+      - monitoring
+
+  # vizgenie:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: vizgenie
+  #   ports:
+  #     - "8501:8501"
+  #   environment:
+  #     - GROQ_API_KEY=${GROQ_API_KEY}
+  #     - LOG_LEVEL=${LOG_LEVEL:-INFO}
+  #   volumes:
+  #     - ./config:/app/config
+  #     - ./metadata:/app/metadata
+  #     - ./data:/app/data
+  #     - ./logs:/app/logs
+  #     - chroma-data:/app/chroma_db
+  #   depends_on:
+  #     grafana:
+  #       condition: service_healthy
+  #     prometheus:
+  #       condition: service_healthy
+  #     postgres:
+  #       condition: service_healthy
+  #     loki:
+  #       condition: service_healthy
+  #   networks:
+  #     - monitoring
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 40s
+
+  # ==========================================================================
+  # INFRASTRUCTURE - DATABASE
+  # ==========================================================================
+  
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: app_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./demo/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ==========================================================================
+  # INFRASTRUCTURE - METRICS (Prometheus)
+  # ==========================================================================
+  
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
     restart: unless-stopped
     volumes:
-      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
+      - ./demo/config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--web.enable-lifecycle'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+      - "--storage.tsdb.retention.time=30d"
     ports:
       - "9090:9090"
     networks:
       - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
+  # ==========================================================================
+  # INFRASTRUCTURE - LOGS (Loki)
+  # ==========================================================================
+  
+  loki:
+    image: grafana/loki:2.9.4
+    container_name: loki
+    restart: unless-stopped
+    volumes:
+      - ./demo/config/loki-config.yml:/etc/loki/loki-config.yml
+      - loki-data:/loki
+    command: -config.file=/etc/loki/loki-config.yml
+    ports:
+      - "3100:3100"
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3100/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==========================================================================
+  # INFRASTRUCTURE - LOG COLLECTOR (Promtail)
+  # ==========================================================================
+  
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    restart: unless-stopped
+    volumes:
+      - ./demo/config/promtail-config.yml:/etc/promtail/promtail-config.yml
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: -config.file=/etc/promtail/promtail-config.yml
+    depends_on:
+      - loki
+    networks:
+      - monitoring
+
+  # ==========================================================================
+  # INFRASTRUCTURE - VISUALIZATION (Grafana)
+  # ==========================================================================
+  
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
@@ -28,130 +185,42 @@ services:
       - "3000:3000"
     volumes:
       - grafana-data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./demo/grafana/provisioning:/etc/grafana/provisioning
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_SECURITY_ALLOW_EMBEDDING=true
     networks:
       - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.47.1
-    container_name: cadvisor
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:rw
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-    command:
-      - '--storage_duration=15s'
-    networks:
-      - monitoring
-    labels:
-      org.label-schema.group: "monitoring"
-      name: "cadvisor"
-
-  node-exporter:
-    image: prom/node-exporter:latest
-    container_name: node-exporter
-    restart: unless-stopped
-    ports:
-      - "9100:9100"
-    networks:
-      - monitoring
-
-  redis-exporter:
-    image: oliver006/redis_exporter:latest
-    container_name: redis-exporter
-    restart: unless-stopped
-    ports:
-      - "9121:9121"
-    environment:
-      - REDIS_ADDR=redis:6379
-    depends_on:
-      - redis
-    networks:
-      - monitoring
-
-  redis:
-    image: redis:latest
-    container_name: redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    networks:
-      - monitoring
-
-  redis-traffic:
-    image: redis:latest
-    container_name: redis-traffic
-    command: 
-      - sh
-      - -c
-      - "while true; do redis-cli -h redis SET foo $$(date +%s) && sleep 0.1; done"
-    networks:
-      - monitoring
-    depends_on:
-      - redis
-
-  nginx-1:
-    image: nginx:latest
-    container_name: nginx-1
-    ports:
-      - "80:80"
-    volumes:
-      - nginx-data-1:/usr/share/nginx/html
-    networks:
-      - monitoring
-
-  nginx-2:
-    image: nginx:latest
-    container_name: nginx-2
-    ports:
-      - "81:80"
-    volumes:
-      - nginx-data-2:/usr/share/nginx/html
-    networks:
-      - monitoring
-
-  postgres:
-    image: postgres:latest
-    container_name: postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: sales_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: admin
-    volumes:
-      - postgres-datasource:/var/lib/postgresql/data
-    networks:
-      - monitoring
-    ports:
-      - "5433:5432"
-
-  postgres-exporter:
-    image: prometheuscommunity/postgres-exporter:latest
-    container_name: postgres-exporter
-    restart: unless-stopped
-    environment:
-      DATA_SOURCE_NAME: "postgresql://postgres:admin@postgres:5432/sales_db?sslmode=disable"
-    ports:
-      - "9187:9187"
-    depends_on:
-      - postgres
-    networks:
-      - monitoring
+# =============================================================================
+# NETWORKS
+# =============================================================================
 
 networks:
   monitoring:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
+
+# =============================================================================
+# VOLUMES
+# =============================================================================
 
 volumes:
-  prometheus_data: {}
-  grafana-data: {}
-  nginx-data-1: {}
-  nginx-data-2: {}
-  postgres-datasource: {}
+  prometheus-data:
+    driver: local
+  loki-data:
+    driver: local
+  grafana-data:
+    driver: local
+  postgres-data:
+    driver: local

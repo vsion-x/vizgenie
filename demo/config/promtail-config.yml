@@ -1,0 +1,194 @@
+# demo/config/promtail-config.yml - FULLY GENERIC
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  log_level: info
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+    batchwait: 1s
+    batchsize: 102400
+    timeout: 10s
+
+scrape_configs:
+  # ========================================================================
+  # DOCKER LOGS - GENERIC FOR ALL CONTAINERS
+  # ========================================================================
+  - job_name: docker_logs
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+    
+    relabel_configs:
+      # Extract container name
+      - source_labels: [__meta_docker_container_name]
+        regex: '/(.*)'
+        target_label: container
+      
+      # Extract compose service name
+      - source_labels: [__meta_docker_container_label_com_docker_compose_service]
+        target_label: service
+      
+      # Extract custom labels (app, environment, etc.)
+      - source_labels: [__meta_docker_container_label_app]
+        target_label: app
+      
+      - source_labels: [__meta_docker_container_label_environment]
+        target_label: environment
+      
+      # Set default environment if not set
+      - target_label: environment
+        replacement: 'production'
+        
+    pipeline_stages:
+      # ====================================================================
+      # STAGE 1: JSON LOG PARSING (for structured logs)
+      # ====================================================================
+      - match:
+          selector: '{container=~".+"}'
+          stages:
+            # Try parsing as JSON
+            - json:
+                expressions:
+                  timestamp: timestamp
+                  level: level
+                  severity: level  # Alias
+                  logger: logger
+                  message: message
+                  msg: message     # Alias
+                  module: module
+                  function: function
+                  line: line
+                  http_status: http_status
+                  status: http_status  # Alias
+                  http_method: http_method
+                  method: http_method  # Alias
+                  path: path
+                  endpoint: path   # Alias
+                  duration_ms: duration_ms
+                  error_type: error_type
+                  error_code: error_code
+                  stack_trace: stack_trace
+            
+            # Parse timestamp if present
+            - timestamp:
+                source: timestamp
+                format: '2006-01-02T15:04:05.999999'
+                fallback_formats:
+                  - '2006-01-02T15:04:05Z'
+                  - '2006-01-02 15:04:05'
+                  - RFC3339
+            
+            # Extract labels from JSON fields
+            - labels:
+                level:
+                error_type:
+                http_method:
+                http_status:
+            
+            # Normalize level (INFO, WARNING, ERROR, CRITICAL)
+            - template:
+                source: normalized_level
+                template: '{{ .level | ToUpper }}'
+            
+            - labels:
+                normalized_level:
+            
+            # Categorize logs
+            - template:
+                source: log_category
+                template: |
+                  {{- if .error_type -}}
+                    error
+                  {{- else if eq .normalized_level "ERROR" -}}
+                    error
+                  {{- else if eq .normalized_level "CRITICAL" -}}
+                    critical
+                  {{- else if eq .normalized_level "WARNING" -}}
+                    warning
+                  {{- else if .http_status -}}
+                    {{- if ge .http_status "500" -}}
+                      error
+                    {{- else if ge .http_status "400" -}}
+                      warning
+                    {{- else -}}
+                      normal
+                    {{- end -}}
+                  {{- else -}}
+                    normal
+                  {{- end -}}
+            
+            - labels:
+                log_category:
+      
+      # ====================================================================
+      # STAGE 2: PLAIN TEXT LOG PARSING (for unstructured logs)
+      # ====================================================================
+      - match:
+          selector: '{container=~".+"} !~ "^\\{"'
+          stages:
+            # Common log patterns
+            
+            # Pattern 1: Python/Uvicorn logs
+            # INFO:     172.18.0.8:52314 - "POST /api/users HTTP/1.1" 200 OK
+            - regex:
+                expression: '^(?P<level>INFO|WARNING|ERROR|DEBUG|CRITICAL):\s+(?P<client_ip>[\d\.]+):(?P<port>\d+)\s+-\s+"(?P<method>\w+)\s+(?P<path>[^\s\?]+).*?"\s+(?P<status>\d+)'
+            
+            # Pattern 2: Standard Python logging
+            # 2024-01-01 12:00:00 ERROR module.function: Error message
+            - regex:
+                expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s+(?P<level>\w+)\s+(?P<module>[\w\.]+):\s+(?P<message>.*)'
+            
+            # Pattern 3: Generic level extraction
+            - regex:
+                expression: '(?P<level>INFO|WARN|WARNING|ERROR|FATAL|CRITICAL|DEBUG)'
+            
+            # Extract labels
+            - labels:
+                level:
+                method:
+                status:
+            
+            # Categorize based on extracted data
+            - template:
+                source: log_category
+                template: |
+                  {{- if eq .level "ERROR" -}}
+                    error
+                  {{- else if eq .level "CRITICAL" -}}
+                    critical
+                  {{- else if eq .level "WARNING" -}}
+                    warning
+                  {{- else if .status -}}
+                    {{- if ge .status "500" -}}
+                      error
+                    {{- else if ge .status "400" -}}
+                      warning
+                    {{- else -}}
+                      access_log
+                    {{- end -}}
+                  {{- else -}}
+                    normal
+                  {{- end -}}
+            
+            - labels:
+                log_category:
+      
+      # ====================================================================
+      # STAGE 3: COMMON POST-PROCESSING (applies to all logs)
+      # ====================================================================
+      - match:
+          selector: '{container=~".+"}'
+          stages:
+            # Drop healthcheck/metrics noise
+            - drop:
+                expression: ".*(/health|/metrics|/ready|/healthz).*"
+                drop_counter_reason: "healthcheck"
+            
+            # Drop Kubernetes probe logs
+            - drop:
+                expression: ".*kube-probe.*"
+                drop_counter_reason: "k8s_probe"
