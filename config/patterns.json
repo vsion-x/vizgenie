@@ -1,0 +1,48 @@
+{
+  "patterns": [
+    {
+      "error_type": "NullPointerError",
+      "regex": "NullPointerError.*'NoneType' object has no attribute",
+      "intent": "null_reference",
+      "extract": {
+        "endpoint": "path[\\s:]+([/\\w-]+)",
+        "module": "module[\\s:]+(\\w+)"
+      }
+    },
+    {
+      "error_type": "ConnectionError",
+      "regex": "ConnectionError.*(connection refused|reset|timeout)",
+      "intent": "network_failure",
+      "extract": {
+        "endpoint": "(https?://[^\\s]+)"
+      }
+    },
+    {
+      "error_type": "DatabaseError",
+      "regex": "DatabaseError.*(could not translate host name|could not connect to server)",
+      "intent": "database_failure",
+      "extract": {
+        "endpoint": "path[\\s:]+([/\\w-]+)",
+        "module": "module[\\s:]+(\\w+)"
+      }
+    },
+    {
+      "error_type": "TypeError",
+      "regex": "Type error: can only concatenate str \\(not \\\"int\\\"\\) to str",
+      "intent": "type_mismatch",
+      "extract": {
+        "endpoint": "path[\\s:]+([/\\w-]+)",
+        "module": "module[\\s:]+(\\w+)"
+      }
+    },
+    {
+      "error_type": "InternalServerError",
+      "regex": "Internal server error triggered",
+      "intent": "internal_server_error",
+      "extract": {
+        "endpoint": "path[\\s:]+([/\\w-]+)",
+        "module": "module[\\s:]+(\\w+)"
+      }
+    }
+  ]
+}

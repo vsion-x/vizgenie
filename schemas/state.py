@@ -1,106 +1,108 @@
 """
 # schemas/state.py
 Agent state schemas for LangGraph workflows
-Supports MTTD/MTTR tracking and multi-datasource contexts
+Focused on log monitoring + RCA only
 """
 
-from typing import TypedDict, Literal, List, Dict, Optional, Any
+from typing import TypedDict, List, Dict, Optional, Any
 from datetime import datetime
 from dataclasses import dataclass, asdict
 
 
 class AgentState(TypedDict, total=False):
     """
-    Universal state for all agents
-    Generic design - extensible for new datasources/agents
+    Universal state for RCA agent
+    Stripped to log monitoring + RCA concerns only
     """
-    
+
     # ===== INPUT =====
     user_query: str
-    intent: Literal["metrics", "sql", "troubleshoot", "learning", "rca"]
-    
+    intent: str  # always "rca" now
+
     # ===== DATASOURCE CONTEXT =====
-    selected_datasource: Dict[str, Any]
-    # {
-    #   'uid': str,
-    #   'name': str,
-    #   'type': 'prometheus' | 'postgresql' | 'loki',
-    #   'url': str,
-    #   'config': {...}
-    # }
-    
-    available_datasources: List[Dict[str, Any]]  # For cross-correlation in RCA
-    
+    available_datasources: List[Dict[str, Any]]
+    # [{'name': str, 'type': 'cloudwatch'|..., 'source_obj': LogSource}]
+
+    datasource_uid: str
+    datasource_type: str
+
     # ===== CONVERSATION CONTEXT =====
     conversation_history: List[Dict[str, str]]
-    # [{'role': 'user'|'assistant', 'content': str}]
-    
-    # ===== METRICS WORKFLOW =====
-    llm_suggested_metrics: List[str]
-    vectordb_similar_metrics: List[str]
-    discovered_labels: Dict[str, List[str]]
-    # {'metric_name': ['label1', 'label2']}
-    
-    # ===== SQL WORKFLOW =====
-    postgres_metadata: Dict[str, Any]
-    # {'tables': [...], 'columns': {...}}
-    
-    # ===== GENERATED QUERIES =====
-    generated_query: str  # PromQL or SQL
-    query_type: Literal["promql", "sql", "logql"]
-    
-    # ===== LOKI/LOGS =====
+
+    # ===== LOKI / GENERIC LOGS =====
     loki_logs: List[Dict[str, Any]]
-    # [{'timestamp': float, 'log': str, 'labels': {...}}]
-    
+    # kept as alias for "fetched logs" from any source
+
     log_patterns: List[Dict[str, Any]]
-    # From YAML: [{'category': str, 'regex': str, 'severity': str}]
-    
-    categorized_logs: Dict[str, List[Dict]]
-    # {'error': [...], 'db': [...], 'unknown': [...]}
-    
-    # ===== RCA CONTEXT =====
+    # [{'error_type': str, 'regex': str, 'intent': str, 'extract': {...}}]
+
+    categorized_data: Dict[str, Any]
+    # {'errors': [...], 'warnings': [...], 'unknown': [...]}
+
+    # ===== ERROR PATTERN (passed into RCA from monitor) =====
+    error_pattern: Optional[Dict[str, Any]]
+    # {
+    #   'pattern_id': str,
+    #   'error_type': str,
+    #   'error_code': str | None,
+    #   'error_message': str,
+    #   'stack_trace': str | None,
+    #   'affected_endpoints': [str],
+    #   'affected_modules': [str],
+    #   'occurrence_count': int,
+    #   'first_seen': str (ISO),
+    #   'sample_logs': [str],
+    # }
+
+    # ===== RCA WORKFLOW =====
     anomaly: Optional[Dict[str, Any]]
     # {
     #   'timestamp': datetime,
     #   'severity': 'critical'|'high'|'medium'|'low',
+    #   'severity_level': int,
     #   'anomaly_type': str,
     #   'details': {...},
-    #   'evidence': {...}
+    #   'evidence': {...},
     # }
-    
-    correlated_metrics: Dict[str, Any]
-    # Metrics from multiple datasources for RCA
-    
+
+    evidence: Dict[str, Any]
+    # {
+    #   'error_logs': [...],
+    #   'metrics': {},       # always empty now (no Prometheus)
+    #   'patterns': [...],
+    #   'error_pattern': {...},
+    # }
+
+    correlations: Dict[str, Any]
+    # {'temporal': [...], 'causal': [...], 'affected_components': [...]}
+
+    correlated_metrics: Dict[str, Any]  # kept for schema compat, always {}
+
     root_cause_analysis: str
     resolution_suggestions: List[Dict[str, str]]
-    # [{'type': 'code'|'db'|'config', 'suggestion': str, 'implementation': str}]
-    
+
+    rca_result: Dict[str, Any]
+    rca_report: str
+    rca_report_structured: Dict[str, Any]
+
     # ===== OBSERVABILITY METRICS =====
-    mttd: Optional[float]  # Mean Time To Detect (seconds)
-    mttr: Optional[float]  # Mean Time To Resolve (seconds)
+    mttd: Optional[float]   # Mean Time To Detect (seconds)
+    mttr: Optional[float]   # Mean Time To Resolve (seconds)
     incident_id: Optional[str]
-    
-    # ===== DASHBOARD =====
-    dashboard_json: Dict[str, Any]
-    dashboard_url: str
-    
+
+    # ===== INVESTIGATION STEPS =====
+    investigation_steps: List[Dict[str, Any]]
+    tools_used: List[str]
+
     # ===== ERROR HANDLING =====
     error: Optional[str]
     llm_retry_count: int
     fallback_mode: bool
-    
-    # ===== INVESTIGATOR AGENT =====
-    investigation_steps: List[Dict[str, Any]]
-    # [{'step': int, 'action': str, 'result': {...}}]
-    
-    tools_used: List[str]
-    # Track which tools were called
-    
-    # ===== LEARNING AGENT =====
-    learned_patterns: List[Dict[str, Any]]
-    pattern_confidence: Dict[str, float]
-    # {'pattern_id': confidence_score}
+
+    # ===== GRAFANA (disabled — kept for schema compat) =====
+    grafana_url: str
+    grafana_api_key: str
+    dashboard_url: str
 
 
 @dataclass
@@ -115,7 +117,7 @@ class Anomaly:
     details: Dict[str, Any]
     evidence: Dict[str, Any]
     mttd: Optional[float] = None
-    
+
     def to_dict(self):
         data = asdict(self)
         data['timestamp'] = self.timestamp.isoformat()

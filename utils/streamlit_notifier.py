@@ -1,4 +1,5 @@
 """
+# utils/streamlit_notifier.py
 Streamlit notification system for background job events
 Uses asyncio-safe queue for thread-safe UI updates
 Python 3.12 compatible

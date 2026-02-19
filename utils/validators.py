@@ -1,4 +1,5 @@
 """
+# utils/validators.py
 Input validation utilities
 Python 3.12 compatible
 """

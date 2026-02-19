@@ -191,16 +191,16 @@ class ErrorAnalyzer:
             return level in ["ERROR", "CRITICAL"]
         
         # Check log text for level indicators
-        level_patterns = [
-            r'"level":\s*"(ERROR|CRITICAL)"',
-            r'\bERROR\b',
-            r'\bCRITICAL\b',
-            r'\bFATAL\b',
-            r'\bException\b',
-            r'\bTraceback\b',
+        LEVEL_PATTERNS = [
+            r'"level"\s*:\s*"(ERROR|CRITICAL|FATAL)"',  # structured JSON
+            r'\b(ERROR|CRITICAL|FATAL|SEVERE)\b',         # plaintext level
+            r'\b(Exception|Traceback|Stacktrace)\b',       # Python exceptions
+            r'\b(FAILED|FAILURE)\b(?!.*success)',          # failed but not "failed over successfully"
+            r'"status"\s*:\s*[5]\d{2}',                   # JSON status: 5xx
+            r'\b5\d{2}\s+(Bad Gateway|Internal Server|Service Unavailable)',
         ]
         
-        for pattern in level_patterns:
+        for pattern in LEVEL_PATTERNS:
             if re.search(pattern, log_text, re.IGNORECASE):
                 return True
         
